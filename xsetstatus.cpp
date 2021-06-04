@@ -27,9 +27,10 @@ static __always_inline void printerr(auto&&... args)
 // config variables and root strings array
 
 constexpr int N_FIELDS = 8;
-constexpr int FIELD_MAX_LENGTH = 40;
+constexpr int FIELD_MAX_LENGTH = 22;
 constexpr int DEFAULT_SLEEP_TIME = 10;
 char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
+const int SIGOFFSET = SIGRTMAX;
 const std::string fmt_format_str = []()
 {
         std::string f = "[{}";
@@ -221,14 +222,14 @@ constexpr ShellResponse interval_responses[] = {
 };
 
 const std::pair<int, ShellResponse> sig_shell_responses[] = {
-/*        signal value   ShellResponse instance*/
-        { SIGRTMAX - 1,  rtable[3] },
-        { SIGRTMAX - 2,  rtable[4] }
+/*        signal value    ShellResponse instance*/
+        { SIGOFFSET - 1,  rtable[3] },
+        { SIGOFFSET - 2,  rtable[4] }
 };
 
 const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
-/*        signal value   BuiltinResponse instance*/
-        { SIGRTMAX - 3,  brtable[0] }
+/*        signal value    BuiltinResponse instance*/
+        { SIGOFFSET - 3,  brtable[0] }
 };
 
 void run_at_startup()
