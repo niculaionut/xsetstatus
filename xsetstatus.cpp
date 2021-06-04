@@ -5,10 +5,6 @@
 #include <signal.h>
 #include <X11/Xlib.h>
 
-// enable or disable debug output to stderr
-
-constexpr bool debug_info = false;
-
 // stl/fmt wrappers
 
 auto find_if(const auto& container, const auto pred)
@@ -18,10 +14,7 @@ auto find_if(const auto& container, const auto pred)
 
 static __always_inline void printerr(auto&&... args)
 {
-        if constexpr(debug_info)
-        {
-                fmt::print(stderr, args...);
-        }
+        fmt::print(stderr, args...);
 }
 
 // config variables and root strings array
@@ -332,8 +325,21 @@ void interval_loop()
         }
 }
 
+bool already_running()
+{
+        const auto cmdres = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
+        return cmdres.output != "1";
+}
+
 int main()
 {
+        if(already_running())
+        {
+                printerr("xsetstatus: Another instance is already running."
+                         " Exiting with code {}.\n", EXIT_SUCCESS);
+                return EXIT_SUCCESS;
+        }
+
         setup_x();
         run_at_startup();
         init_signals();
