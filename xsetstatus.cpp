@@ -28,7 +28,6 @@ static __always_inline void printerr(auto&&... args)
 
 constexpr int N_FIELDS = 8;
 constexpr int FIELD_MAX_LENGTH = 22;
-constexpr int DEFAULT_SLEEP_TIME = 10;
 char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
 const int SIGOFFSET = SIGRTMAX;
 const std::string fmt_format_str = []()
@@ -44,6 +43,31 @@ const std::string fmt_format_str = []()
 
         return f;
 }();
+static Display* dpy = nullptr;
+static int screen;
+static Window root;
+
+// xsetroot utils
+
+std::string get_root_string()
+{
+        int i = 0;
+        std::string f = fmt::format(FMT_COMPILE("[{}"), rootstrings[i++]);
+        for(int tmp = 0; tmp < N_FIELDS - 2; ++tmp)
+        {
+                f += fmt::format(FMT_COMPILE(" |{}"), rootstrings[i++]);
+        }
+        f += fmt::format(FMT_COMPILE(" |{}]"), rootstrings[i]);
+
+        return f;
+}
+
+void set_root()
+{
+        const auto cstatus = get_root_string();
+        XStoreName(dpy, root, cstatus.data());
+        XFlush(dpy);
+}
 
 // utilities for executing shell commands
 
@@ -63,7 +87,6 @@ CmdResult exec_cmd(const char* cmd)
 
         if(!pipe)
         {
-                printerr("popen() failed!");
                 std::exit(EXIT_FAILURE);
         }
 
@@ -110,6 +133,7 @@ std::string toggle_lang()
 struct ShellResponse
 {
 public:
+        template<bool>
         void resolve() const;
 
 public:
@@ -120,6 +144,7 @@ public:
 struct BuiltinResponse
 {
 public:
+        template<bool>
         void resolve() const;
 
 public:
@@ -128,14 +153,11 @@ public:
         const int pos;
 };
 
+template<bool SET_IMMEDIATELY>
 void ShellResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
         {
-                printerr("Erorr: value of Response.pos needs to be between 0 and {}. Value "
-                         "passed to function: {}\n",
-                          N_FIELDS - 1, pos);
-
                 std::exit(EXIT_FAILURE);
         }
 
@@ -143,32 +165,27 @@ void ShellResponse::resolve() const
 
         if(cmdres.rc != EXIT_SUCCESS)
         {
-                printerr("failure: command '{}' exited with return code {}\n",
-                         command, cmdres.rc);
-
                 std::exit(EXIT_FAILURE);
         }
 
         if(cmdres.output.size() >= FIELD_MAX_LENGTH)
         {
-                printerr("failure: copying output of command '{}' would overflow "
-                         "root buffer at index {}\n",
-                         command, pos);
-
                 std::exit(EXIT_FAILURE);
         }
 
         std::strcpy(rootstrings[pos], cmdres.output.data());
+
+        if constexpr(SET_IMMEDIATELY)
+        {
+                set_root();
+        }
 }
 
+template<bool SET_IMMEDIATELY>
 void BuiltinResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
         {
-                printerr("Erorr: value of Response.pos needs to be between 0 and {}. Value "
-                         "passed to function: {}\n",
-                         N_FIELDS - 1, pos);
-
                 std::exit(EXIT_FAILURE);
         }
 
@@ -176,14 +193,15 @@ void BuiltinResponse::resolve() const
 
         if(returnstr.size() >= FIELD_MAX_LENGTH)
         {
-                printerr("failure: copying return string of builtin '{}' would overflow "
-                         "root buffer at index {}\n",
-                         description, pos);
-
                 std::exit(EXIT_FAILURE);
         }
 
         std::strcpy(rootstrings[pos], returnstr.data());
+
+        if constexpr(SET_IMMEDIATELY)
+        {
+                set_root();
+        }
 }
 
 enum ResponseRootIdx
@@ -236,21 +254,25 @@ void run_at_startup()
 {
         for(const auto& r : rtable)
         {
-                r.resolve();
+                r.resolve<false>();
         }
 
         for(const auto& r : brtable)
         {
-                r.resolve();
+                r.resolve<false>();
         }
+
+        set_root();
 }
 
-void run_interval_responses()
+void run_interval_responses(const int)
 {
         for(const auto& r : interval_responses)
         {
-                r.resolve();
+                r.resolve<false>();
         }
+
+        set_root();
 }
 
 void shell_handler(const int sig)
@@ -260,7 +282,8 @@ void shell_handler(const int sig)
                                 {
                                         return r.first == sig;
                                 });
-        r->second.resolve();
+
+        r->second.resolve<true>();
 }
 
 void builtin_handler(const int sig)
@@ -270,7 +293,8 @@ void builtin_handler(const int sig)
                                 {
                                         return r.first == sig;
                                 });
-        r->second.resolve();
+
+        r->second.resolve<true>();
 }
 
 void init_signals()
@@ -284,39 +308,40 @@ void init_signals()
         {
                 signal(sig, builtin_handler);
         }
+
+        signal(SIGOFFSET - 4, run_interval_responses);
 }
 
-std::string get_root_string()
+
+int setup_x()
 {
-        int i = 0;
-        std::string f = fmt::format(FMT_COMPILE("[{}"), rootstrings[i++]);
-        for(int tmp = 0; tmp < N_FIELDS - 2; ++tmp)
+        dpy = XOpenDisplay(nullptr);
+        if(!dpy)
         {
-                f += fmt::format(FMT_COMPILE(" |{}"), rootstrings[i++]);
+                printerr("xsetstatus: Failed to open display\n");
+                std::exit(EXIT_FAILURE);
         }
-        f += fmt::format(FMT_COMPILE(" |{}]"), rootstrings[i]);
-
-        return f;
+        screen = DefaultScreen(dpy);
+        root = RootWindow(dpy, screen);
+        return 1;
 }
 
-void set_root()
-{
-        std::system(fmt::format(FMT_COMPILE("xsetroot -name '{}'"), get_root_string()).data());
-}
 
 void interval_loop()
 {
         while(true)
         {
-                run_interval_responses();
-                set_root();
-                sleep(DEFAULT_SLEEP_TIME);
+                pause();
         }
 }
 
 int main()
 {
+        setup_x();
         run_at_startup();
+
         init_signals();
+        signal(SIGOFFSET - 4, run_interval_responses);
+
         interval_loop();
 }
