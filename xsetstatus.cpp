@@ -70,7 +70,6 @@ CmdResult exec_cmd(const char* cmd)
         {
                 result += buffer.data();
         }
-
         const int rc = pclose(pipe);
 
         if constexpr(OMIT_NEWLINE)
@@ -101,9 +100,7 @@ std::string toggle_lang()
         static bool flag = true;
 
         flag = !flag;
-
         std::system(commands[flag]);
-
         return std::string(ltable[flag]);
 }
 
@@ -291,14 +288,11 @@ void init_signals()
 std::string get_root_string()
 {
         int i = 0;
-
         std::string f = fmt::format(FMT_COMPILE("[{}"), rootstrings[i++]);
-
         for(int tmp = 0; tmp < N_FIELDS - 2; ++tmp)
         {
                 f += fmt::format(FMT_COMPILE(" |{}"), rootstrings[i++]);
         }
-
         f += fmt::format(FMT_COMPILE(" |{}]"), rootstrings[i]);
 
         return f;
