@@ -193,19 +193,19 @@ enum ResponseRootIdx
 };
 
 constexpr ShellResponse rtable[] = {
-/*        shell script/command name   index in root array */
-        { "xss-get-time",             R_TIME },
-        { "xss-get-load",             R_LOAD },
-        { "xss-get-temp",             R_TEMP },
-        { "xss-get-vol",              R_VOL  },
-        { "xss-get-mic",              R_MIC  },
-        { "xss-get-mem",              R_MEM  },
-        { "xss-get-date",             R_DATE },
+/*        shell command/script   index in root array */
+        { "xss-get-time",        R_TIME },
+        { "xss-get-load",        R_LOAD },
+        { "xss-get-temp",        R_TEMP },
+        { "xss-get-vol",         R_VOL  },
+        { "xss-get-mic",         R_MIC  },
+        { "xss-get-mem",         R_MEM  },
+        { "xss-get-date",        R_DATE },
 };
 
 constexpr BuiltinResponse brtable[] = {
-/*        shell script/command name   pointer to function (handler)   root array index */
-        { "toggle kb lang",           toggle_lang,                    R_LANG }
+/*        description         pointer to function (handler)   root array index */
+        { "toggle kb lang",   toggle_lang,                    R_LANG }
 };
 
 constexpr ShellResponse interval_responses[] = {
