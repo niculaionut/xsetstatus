@@ -1,9 +1,32 @@
 #include <fmt/core.h>
+#include <fmt/compile.h>
 #include <string>
 #include <unordered_map>
 #include <unistd.h>
 #include <signal.h>
 #include <X11/Xlib.h>
+
+// config variables and root strings array
+
+constexpr int N_FIELDS = 8;
+constexpr int FIELD_MAX_LENGTH = 40;
+constexpr int DEFAULT_SLEEP_TIME = 10;
+char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
+const std::string fmt_format_str = []()
+{
+        std::string f = "[{}";
+
+        for(int i = 0; i < N_FIELDS - 2; ++i)
+        {
+                f += " |{}";
+        }
+
+        f += " |{}]";
+
+        return f;
+}();
+
+// utilities for executing shell commands
 
 struct CmdResult
 {
@@ -11,6 +34,7 @@ struct CmdResult
         const int rc;
 };
 
+template<bool OMIT_NEWLINE>
 CmdResult exec_cmd(const char* cmd)
 {
         std::array<char, 128> buffer;
@@ -31,76 +55,183 @@ CmdResult exec_cmd(const char* cmd)
 
         const int rc = pclose(pipe);
 
+        if constexpr(OMIT_NEWLINE)
+        {
+                if(!result.empty() && result.back() == '\n')
+                {
+                        result.resize(result.size() - 1);
+                }
+        }
+
         return {std::move(result), rc};
 }
 
-using handler_t = void (*)(const int);
+// functions for builtin responses
 
-constexpr int N_FIELDS = 7;
-constexpr int FIELD_MAX_LENGTH = 40;
-constexpr int DEFAULT_SLEEP_TIME = 10;
-
-char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
-
-const std::string format_str = []()
+std::string toggle_lang()
 {
-        std::string f = "[{}";
+        static constexpr const char* ltable[2] = {
+            "EN",
+            "RO"
+        };
 
-        for(int i = 0; i < N_FIELDS - 2; ++i)
-        {
-                f += " |{}";
-        }
+        static constexpr const char* commands[2] = {
+            "setxkbmap us; setxkbmap -option numpad:mac",
+            "setxkbmap ro -variant std"
+        };
 
-        f += " |{}]";
+        static bool flag = true;
 
-        return f;
-}();
+        flag = !flag;
 
-struct Response
+        std::system(commands[flag]);
+
+        return std::string(ltable[flag]);
+}
+
+// Responses/handlers for signals and interval-updated fields
+
+struct ShellResponse
 {
-        void resolve() const
-        {
-                if(pos < 0)
-                {
-                        std::system(command);
-                        return;
-                }
+public:
+        void resolve() const;
 
-                const auto cmdres = exec_cmd(command);
-
-                if(cmdres.rc != EXIT_SUCCESS)
-                {
-                        fmt::print(stderr,
-                                   "failure: command '{}' exited with return code {}\n",
-                                   command, cmdres.rc);
-                        std::exit(EXIT_FAILURE);
-                }
-
-                if(cmdres.output.size() >= FIELD_MAX_LENGTH)
-                {
-                        fmt::print(stderr,
-                                   "failure: copying output of command '{}' would overflow "
-                                   "root buffer at index {}\n",
-                                   command, pos);
-                        std::exit(EXIT_FAILURE);
-                }
-
-                std::strcpy(rootstrings[pos], cmdres.output.c_str());
-        }
-
+public:
         const char* command;
         const int pos;
-
-private:
 };
 
-const std::unordered_map<int, Response> sig_responses = {{SIGRTMAX, {"at-startup", -1}}};
+struct BuiltinResponse
+{
+public:
+        void resolve() const;
 
-const Response interval_responses[] = {
-    {"xss-get-time", 0},
-    {"xss-get-load", 1},
-    {"xss-get-temp", 2},
+public:
+        const char* description;
+        std::string (*fptr)();
+        const int pos;
 };
+
+void ShellResponse::resolve() const
+{
+        if(pos < 0 || pos >= N_FIELDS)
+        {
+                fmt::print(stderr,
+                           "Erorr: value of Response.pos needs to be between 0 and {}. Value "
+                           "passed to function: {}\n",
+                           N_FIELDS - 1, pos);
+
+                std::exit(EXIT_FAILURE);
+        }
+
+        const auto cmdres = exec_cmd<true>(command);
+
+        if(cmdres.rc != EXIT_SUCCESS)
+        {
+                fmt::print(stderr, "failure: command '{}' exited with return code {}\n",
+                           command, cmdres.rc);
+
+                std::exit(EXIT_FAILURE);
+        }
+
+        if(cmdres.output.size() >= FIELD_MAX_LENGTH)
+        {
+                fmt::print(stderr,
+                           "failure: copying output of command '{}' would overflow "
+                           "root buffer at index {}\n",
+                           command, pos);
+
+                std::exit(EXIT_FAILURE);
+        }
+
+        std::strcpy(rootstrings[pos], cmdres.output.data());
+}
+
+void BuiltinResponse::resolve() const
+{
+        if(pos < 0 || pos >= N_FIELDS)
+        {
+                fmt::print(stderr,
+                           "Erorr: value of Response.pos needs to be between 0 and {}. Value "
+                           "passed to function: {}\n",
+                           N_FIELDS - 1, pos);
+
+                std::exit(EXIT_FAILURE);
+        }
+
+        const std::string returnstr = fptr();
+
+        if(returnstr.size() >= FIELD_MAX_LENGTH)
+        {
+                fmt::print(stderr,
+                           "failure: copying return string of builtin '{}' would overflow "
+                           "root buffer at index {}\n",
+                           description, pos);
+
+                std::exit(EXIT_FAILURE);
+        }
+
+        std::strcpy(rootstrings[pos], returnstr.data());
+}
+
+enum ResponseRootIdx
+{
+        R_TIME = 0,
+        R_LOAD,
+        R_TEMP,
+        R_VOL,
+        R_MIC,
+        R_MEM,
+        R_LANG,
+        R_DATE
+};
+
+constexpr ShellResponse rtable[] = {
+/*        shell script/command name   index in root array */
+        { "xss-get-time",             R_TIME },
+        { "xss-get-load",             R_LOAD },
+        { "xss-get-temp",             R_TEMP },
+        { "xss-get-vol",              R_VOL  },
+        { "xss-get-mic",              R_MIC  },
+        { "xss-get-mem",              R_MEM  },
+        { "xss-get-date",             R_DATE },
+};
+
+constexpr BuiltinResponse brtable[] = {
+/*        shell script/command name   pointer to function (handler)   root array index */
+        { "toggle kb lang",           toggle_lang,                    R_LANG }
+};
+
+constexpr ShellResponse interval_responses[] = {
+        rtable[0],
+        rtable[1],
+        rtable[3],
+        rtable[5],
+};
+
+const std::unordered_map<int, ShellResponse> sig_shell_responses = {
+/*        signal value   ShellResponse instance*/
+        { SIGRTMAX - 1,  rtable[3] },
+        { SIGRTMAX - 2,  rtable[4] }
+};
+
+const std::unordered_map<int, BuiltinResponse> sig_builtin_responses = {
+/*        signal value   BuiltinResponse instance*/
+        { SIGRTMAX - 3,  brtable[0] }
+};
+
+void run_at_startup()
+{
+        for(const auto& r : rtable)
+        {
+                r.resolve();
+        }
+
+        for(const auto& r : brtable)
+        {
+                r.resolve();
+        }
+}
 
 void run_interval_responses()
 {
@@ -110,39 +241,50 @@ void run_interval_responses()
         }
 }
 
-void handler(const int sig)
+void shell_handler(const int sig)
 {
-        const auto& r = sig_responses.at(sig);
+        const auto& r = sig_shell_responses.at(sig);
+        r.resolve();
+}
+
+void builtin_handler(const int sig)
+{
+        const auto& r = sig_builtin_responses.at(sig);
         r.resolve();
 }
 
 void init_signals()
 {
-        for(const auto& [sig, r] : sig_responses)
+        for(const auto& [sig, r] : sig_shell_responses)
         {
-                signal(sig, handler);
+                signal(sig, shell_handler);
+        }
+
+        for(const auto& [sig, r] : sig_builtin_responses)
+        {
+                signal(sig, builtin_handler);
         }
 }
 
 std::string get_root_string()
 {
-        return fmt::format(format_str, rootstrings[0], rootstrings[1], rootstrings[2],
-                           rootstrings[3], rootstrings[4], rootstrings[5], rootstrings[6]);
+        int i = 0;
+
+        std::string f = fmt::format(FMT_COMPILE("[{}"), rootstrings[i++]);
+
+        for(int tmp = 0; tmp < N_FIELDS - 2; ++tmp)
+        {
+                f += fmt::format(FMT_COMPILE(" |{}"), rootstrings[i++]);
+        }
+
+        f += fmt::format(FMT_COMPILE(" |{}]"), rootstrings[i]);
+
+        return f;
 }
 
 void set_root()
 {
-        static Display* dpy = nullptr;
-
-        Display* d = XOpenDisplay(nullptr);
-        if(d)
-        {
-                dpy = d;
-        }
-        const int screen = DefaultScreen(dpy);
-        Window root = RootWindow(dpy, screen);
-        XStoreName(dpy, root, get_root_string().c_str());
-        XCloseDisplay(dpy);
+        std::system(fmt::format(FMT_COMPILE("xsetroot -name '{}'"), get_root_string()).data());
 }
 
 void update_loop()
@@ -157,7 +299,7 @@ void update_loop()
 
 int main()
 {
+        run_at_startup();
         init_signals();
-
         update_loop();
 }
