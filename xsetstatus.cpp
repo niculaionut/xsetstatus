@@ -60,6 +60,12 @@ void set_root()
         XFlush(dpy);
 }
 
+void xss_exit(const int rc)
+{
+        XCloseDisplay(dpy);
+        std::exit(rc);
+}
+
 // utilities for executing shell commands
 
 struct CmdResult
@@ -78,7 +84,7 @@ CmdResult exec_cmd(const char* cmd)
 
         if(!pipe)
         {
-                std::exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE);
         }
 
         while(fgets(buffer.data(), buffer.size(), pipe) != nullptr)
@@ -149,19 +155,19 @@ void ShellResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
         {
-                std::exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE);
         }
 
         const auto cmdres = exec_cmd<true>(command);
 
         if(cmdres.rc != EXIT_SUCCESS)
         {
-                std::exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE);
         }
 
         if(cmdres.output.size() >= FIELD_MAX_LENGTH)
         {
-                std::exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE);
         }
 
         std::strcpy(const_cast<char*>(rootstrings[pos]), cmdres.output.data());
@@ -177,14 +183,14 @@ void BuiltinResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
         {
-                std::exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE);
         }
 
         const std::string returnstr = fptr();
 
         if(returnstr.size() >= FIELD_MAX_LENGTH)
         {
-                std::exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE);
         }
 
         std::strcpy(const_cast<char*>(rootstrings[pos]), returnstr.data());
