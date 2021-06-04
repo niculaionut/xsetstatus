@@ -317,7 +317,7 @@ void init_signals()
         signal(SIGINT, terminator);
 }
 
-int setup_x()
+void setup_x()
 {
         dpy = XOpenDisplay(nullptr);
         if(!dpy)
@@ -327,7 +327,6 @@ int setup_x()
         }
         screen = DefaultScreen(dpy);
         root = RootWindow(dpy, screen);
-        return 1;
 }
 
 void interval_loop()
