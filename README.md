@@ -6,4 +6,4 @@ Inspired by [dwmblocks](https://github.com/torrinfail/dwmblocks).
 ### Dependencies:
 + libx11-dev
 + libfmt
-+ c++17-compatible compiler
++ c++20-compatible compiler

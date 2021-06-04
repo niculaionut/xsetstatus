@@ -1,10 +1,16 @@
 #include <fmt/core.h>
 #include <fmt/compile.h>
 #include <string>
-#include <unordered_map>
 #include <unistd.h>
 #include <signal.h>
 #include <X11/Xlib.h>
+
+// stl wrappers
+
+auto find_if(const auto& container, const auto pred)
+{
+        return std::find_if(std::begin(container), std::end(container), pred);
+}
 
 // config variables and root strings array
 
@@ -209,13 +215,13 @@ constexpr ShellResponse interval_responses[] = {
         rtable[5],
 };
 
-const std::unordered_map<int, ShellResponse> sig_shell_responses = {
+const std::pair<int, ShellResponse> sig_shell_responses[] = {
 /*        signal value   ShellResponse instance*/
         { SIGRTMAX - 1,  rtable[3] },
         { SIGRTMAX - 2,  rtable[4] }
 };
 
-const std::unordered_map<int, BuiltinResponse> sig_builtin_responses = {
+const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
 /*        signal value   BuiltinResponse instance*/
         { SIGRTMAX - 3,  brtable[0] }
 };
@@ -243,14 +249,22 @@ void run_interval_responses()
 
 void shell_handler(const int sig)
 {
-        const auto& r = sig_shell_responses.at(sig);
-        r.resolve();
+        const auto& r = find_if(sig_shell_responses,
+                                [&](const auto& r)
+                                {
+                                        return r.first == sig;
+                                });
+        r->second.resolve();
 }
 
 void builtin_handler(const int sig)
 {
-        const auto& r = sig_builtin_responses.at(sig);
-        r.resolve();
+        const auto& r = find_if(sig_builtin_responses,
+                                [&](const auto& r)
+                                {
+                                        return r.first == sig;
+                                });
+        r->second.resolve();
 }
 
 void init_signals()
