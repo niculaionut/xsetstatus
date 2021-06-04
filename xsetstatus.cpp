@@ -1,6 +1,7 @@
 #include <fmt/core.h>
 #include <fmt/compile.h>
 #include <string>
+#include <array>
 #include <unistd.h>
 #include <signal.h>
 #include <X11/Xlib.h>
