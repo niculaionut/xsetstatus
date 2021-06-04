@@ -33,14 +33,11 @@ const int SIGOFFSET = SIGRTMAX;
 const std::string fmt_format_str = []()
 {
         std::string f = "[{}";
-
         for(int i = 0; i < N_FIELDS - 2; ++i)
         {
                 f += " |{}";
         }
-
         f += " |{}]";
-
         return f;
 }();
 static Display* dpy = nullptr;
@@ -100,7 +97,7 @@ CmdResult exec_cmd(const char* cmd)
         {
                 if(!result.empty() && result.back() == '\n')
                 {
-                        result.resize(result.size() - 1);
+                        result.pop_back();
                 }
         }
 
@@ -339,9 +336,6 @@ int main()
 {
         setup_x();
         run_at_startup();
-
         init_signals();
-        signal(SIGOFFSET - 4, run_interval_responses);
-
         interval_loop();
 }
