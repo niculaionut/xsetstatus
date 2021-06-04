@@ -28,7 +28,7 @@ static __always_inline void printerr(auto&&... args)
 
 constexpr int N_FIELDS = 8;
 constexpr int FIELD_MAX_LENGTH = 22;
-char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
+static volatile char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
 const int SIGOFFSET = SIGRTMAX;
 const std::string fmt_format_str = []()
 {
@@ -52,12 +52,12 @@ static Window root;
 std::string get_root_string()
 {
         int i = 0;
-        std::string f = fmt::format(FMT_COMPILE("[{}"), rootstrings[i++]);
+        std::string f = fmt::format(FMT_COMPILE("[{}"), const_cast<char*>(rootstrings[i++]));
         for(int tmp = 0; tmp < N_FIELDS - 2; ++tmp)
         {
-                f += fmt::format(FMT_COMPILE(" |{}"), rootstrings[i++]);
+                f += fmt::format(FMT_COMPILE(" |{}"), const_cast<char*>(rootstrings[i++]));
         }
-        f += fmt::format(FMT_COMPILE(" |{}]"), rootstrings[i]);
+        f += fmt::format(FMT_COMPILE(" |{}]"), const_cast<char*>(rootstrings[i]));
 
         return f;
 }
@@ -173,7 +173,7 @@ void ShellResponse::resolve() const
                 std::exit(EXIT_FAILURE);
         }
 
-        std::strcpy(rootstrings[pos], cmdres.output.data());
+        std::strcpy(const_cast<char*>(rootstrings[pos]), cmdres.output.data());
 
         if constexpr(SET_IMMEDIATELY)
         {
@@ -196,7 +196,7 @@ void BuiltinResponse::resolve() const
                 std::exit(EXIT_FAILURE);
         }
 
-        std::strcpy(rootstrings[pos], returnstr.data());
+        std::strcpy(const_cast<char*>(rootstrings[pos]), returnstr.data());
 
         if constexpr(SET_IMMEDIATELY)
         {
