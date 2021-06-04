@@ -22,6 +22,7 @@ static __always_inline void printerr(auto&&... args)
 constexpr int N_FIELDS = 8;
 constexpr int FIELD_MAX_LENGTH = 22;
 static volatile char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
+static volatile bool running = true;
 const int SIGOFFSET = SIGRTMAX;
 const std::string fmt_format_str = []()
 {
@@ -287,6 +288,11 @@ void builtin_handler(const int sig)
         r->second.resolve<true>();
 }
 
+void terminator(const int)
+{
+        running = false;
+}
+
 void init_signals()
 {
         for(const auto& [sig, r] : sig_shell_responses)
@@ -300,6 +306,8 @@ void init_signals()
         }
 
         signal(SIGOFFSET - 4, run_interval_responses);
+        signal(SIGTERM, terminator);
+        signal(SIGINT, terminator);
 }
 
 int setup_x()
@@ -317,7 +325,7 @@ int setup_x()
 
 void interval_loop()
 {
-        while(true)
+        while(running)
         {
                 pause();
         }
@@ -342,4 +350,6 @@ int main()
         init_statusbar();
         init_signals();
         interval_loop();
+
+        XCloseDisplay(dpy);
 }
