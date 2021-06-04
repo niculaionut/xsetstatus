@@ -5,11 +5,23 @@
 #include <signal.h>
 #include <X11/Xlib.h>
 
-// stl wrappers
+// enable or disable debug output to stderr
+
+constexpr bool debug_info = false;
+
+// stl/fmt wrappers
 
 auto find_if(const auto& container, const auto pred)
 {
         return std::find_if(std::begin(container), std::end(container), pred);
+}
+
+static __always_inline void printerr(auto&&... args)
+{
+        if constexpr(debug_info)
+        {
+                fmt::print(stderr, args...);
+        }
 }
 
 // config variables and root strings array
@@ -50,7 +62,7 @@ CmdResult exec_cmd(const char* cmd)
 
         if(!pipe)
         {
-                fmt::print(stderr, "popen() failed!");
+                printerr("popen() failed!");
                 std::exit(EXIT_FAILURE);
         }
 
@@ -122,10 +134,9 @@ void ShellResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
         {
-                fmt::print(stderr,
-                           "Erorr: value of Response.pos needs to be between 0 and {}. Value "
-                           "passed to function: {}\n",
-                           N_FIELDS - 1, pos);
+                printerr("Erorr: value of Response.pos needs to be between 0 and {}. Value "
+                         "passed to function: {}\n",
+                          N_FIELDS - 1, pos);
 
                 std::exit(EXIT_FAILURE);
         }
@@ -134,18 +145,17 @@ void ShellResponse::resolve() const
 
         if(cmdres.rc != EXIT_SUCCESS)
         {
-                fmt::print(stderr, "failure: command '{}' exited with return code {}\n",
-                           command, cmdres.rc);
+                printerr("failure: command '{}' exited with return code {}\n",
+                         command, cmdres.rc);
 
                 std::exit(EXIT_FAILURE);
         }
 
         if(cmdres.output.size() >= FIELD_MAX_LENGTH)
         {
-                fmt::print(stderr,
-                           "failure: copying output of command '{}' would overflow "
-                           "root buffer at index {}\n",
-                           command, pos);
+                printerr("failure: copying output of command '{}' would overflow "
+                         "root buffer at index {}\n",
+                         command, pos);
 
                 std::exit(EXIT_FAILURE);
         }
@@ -157,10 +167,9 @@ void BuiltinResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
         {
-                fmt::print(stderr,
-                           "Erorr: value of Response.pos needs to be between 0 and {}. Value "
-                           "passed to function: {}\n",
-                           N_FIELDS - 1, pos);
+                printerr("Erorr: value of Response.pos needs to be between 0 and {}. Value "
+                         "passed to function: {}\n",
+                         N_FIELDS - 1, pos);
 
                 std::exit(EXIT_FAILURE);
         }
@@ -169,10 +178,9 @@ void BuiltinResponse::resolve() const
 
         if(returnstr.size() >= FIELD_MAX_LENGTH)
         {
-                fmt::print(stderr,
-                           "failure: copying return string of builtin '{}' would overflow "
-                           "root buffer at index {}\n",
-                           description, pos);
+                printerr("failure: copying return string of builtin '{}' would overflow "
+                         "root buffer at index {}\n",
+                         description, pos);
 
                 std::exit(EXIT_FAILURE);
         }
@@ -301,7 +309,7 @@ void set_root()
         std::system(fmt::format(FMT_COMPILE("xsetroot -name '{}'"), get_root_string()).data());
 }
 
-void update_loop()
+void interval_loop()
 {
         while(true)
         {
@@ -315,5 +323,5 @@ int main()
 {
         run_at_startup();
         init_signals();
-        update_loop();
+        interval_loop();
 }
