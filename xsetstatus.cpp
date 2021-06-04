@@ -240,7 +240,7 @@ const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
         { SIGOFFSET - 3,  brtable[0] }
 };
 
-void run_at_startup()
+void init_statusbar()
 {
         for(const auto& r : rtable)
         {
@@ -302,7 +302,6 @@ void init_signals()
         signal(SIGOFFSET - 4, run_interval_responses);
 }
 
-
 int setup_x()
 {
         dpy = XOpenDisplay(nullptr);
@@ -315,7 +314,6 @@ int setup_x()
         root = RootWindow(dpy, screen);
         return 1;
 }
-
 
 void interval_loop()
 {
@@ -335,13 +333,13 @@ int main()
 {
         if(already_running())
         {
-                printerr("xsetstatus: Another instance is already running."
-                         " Exiting with code {}.\n", EXIT_SUCCESS);
+                printerr("xsetstatus: Another instance is already running. "
+                         "Exiting with code {}.\n", EXIT_SUCCESS);
                 return EXIT_SUCCESS;
         }
 
         setup_x();
-        run_at_startup();
+        init_statusbar();
         init_signals();
         interval_loop();
 }
