@@ -217,7 +217,7 @@ constexpr BuiltinResponse brtable[] = {
 constexpr ShellResponse interval_responses[] = {
         rtable[0],
         rtable[1],
-        rtable[3],
+        rtable[2],
         rtable[5],
 };
 
