@@ -8,7 +8,7 @@
 
 // stl/fmt wrappers
 
-auto find_if(const auto& container, const auto pred)
+static auto find_if(const auto& container, const auto pred)
 {
         return std::find_if(std::begin(container), std::end(container), pred);
 }
@@ -59,7 +59,7 @@ static Window root;
 
 // xsetroot utils
 
-std::string get_root_string()
+static std::string get_root_string()
 {
         return std::apply(
             [&](auto&&... args)
@@ -69,14 +69,14 @@ std::string get_root_string()
             rootstrings);
 }
 
-void set_root()
+static void set_root()
 {
         const auto cstatus = get_root_string();
         XStoreName(dpy, root, cstatus.data());
         XFlush(dpy);
 }
 
-void xss_exit(const int rc)
+static void xss_exit(const int rc)
 {
         XCloseDisplay(dpy);
         std::exit(rc);
@@ -121,7 +121,7 @@ CmdResult exec_cmd(const char* cmd)
 
 // functions for builtin responses
 
-std::string toggle_lang()
+static std::string toggle_lang()
 {
         static constexpr const char* ltable[2] = {
             "EN",
@@ -222,7 +222,7 @@ enum ResponseRootIdx
         R_DATE
 };
 
-constexpr ShellResponse rtable[] = {
+static constexpr ShellResponse rtable[] = {
 /*        shell command/script   index in root array */
         { "xss-get-time",        R_TIME },
         { "xss-get-load",        R_LOAD },
@@ -233,30 +233,30 @@ constexpr ShellResponse rtable[] = {
         { "xss-get-date",        R_DATE },
 };
 
-constexpr BuiltinResponse brtable[] = {
+static constexpr BuiltinResponse brtable[] = {
 /*        description         pointer to function (handler)   root array index */
         { "toggle kb lang",   toggle_lang,                    R_LANG }
 };
 
-constexpr ShellResponse interval_responses[] = {
+static constexpr ShellResponse interval_responses[] = {
         rtable[0],
         rtable[1],
         rtable[2],
         rtable[5],
 };
 
-const std::pair<int, ShellResponse> sig_shell_responses[] = {
+static const std::pair<int, ShellResponse> sig_shell_responses[] = {
 /*        signal value    ShellResponse instance*/
         { SIGOFFSET - 1,  rtable[3] },
         { SIGOFFSET - 2,  rtable[4] }
 };
 
-const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
+static const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
 /*        signal value    BuiltinResponse instance*/
         { SIGOFFSET - 3,  brtable[0] }
 };
 
-void init_statusbar()
+static void init_statusbar()
 {
         for(const auto& r : rtable)
         {
@@ -271,7 +271,7 @@ void init_statusbar()
         set_root();
 }
 
-void run_interval_responses(const int)
+static void run_interval_responses(const int)
 {
         for(const auto& r : interval_responses)
         {
@@ -281,7 +281,7 @@ void run_interval_responses(const int)
         set_root();
 }
 
-void shell_handler(const int sig)
+static void shell_handler(const int sig)
 {
         const auto& r = find_if(sig_shell_responses,
                                 [&](const auto& r)
@@ -292,7 +292,7 @@ void shell_handler(const int sig)
         r->second.resolve<true>();
 }
 
-void builtin_handler(const int sig)
+static void builtin_handler(const int sig)
 {
         const auto& r = find_if(sig_builtin_responses,
                                 [&](const auto& r)
@@ -303,12 +303,12 @@ void builtin_handler(const int sig)
         r->second.resolve<true>();
 }
 
-void terminator(const int)
+static void terminator(const int)
 {
         running = false;
 }
 
-void init_signals()
+static void init_signals()
 {
         for(const auto& [sig, r] : sig_shell_responses)
         {
@@ -325,7 +325,7 @@ void init_signals()
         signal(SIGINT, terminator);
 }
 
-void setup_x()
+static void setup_x()
 {
         dpy = XOpenDisplay(nullptr);
         if(!dpy)
@@ -337,7 +337,7 @@ void setup_x()
         root = RootWindow(dpy, screen);
 }
 
-void wait_for_signals()
+static void wait_for_signals()
 {
         while(running)
         {
@@ -345,7 +345,7 @@ void wait_for_signals()
         }
 }
 
-bool already_running()
+static bool already_running()
 {
         const auto cmdres = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
         return cmdres.output != "1";
