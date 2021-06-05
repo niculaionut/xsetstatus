@@ -13,7 +13,7 @@ static auto find_if(const auto& container, const auto pred)
         return std::find_if(std::begin(container), std::end(container), pred);
 }
 
-static __always_inline void printerr(auto&&... args)
+static void printerr(auto&&... args)
 {
         fmt::print(stderr, args...);
 }
