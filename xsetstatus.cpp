@@ -19,22 +19,43 @@ static __always_inline void printerr(auto&&... args)
 }
 
 // config variables and root strings array
-
+//
 constexpr int N_FIELDS = 8;
 constexpr int FIELD_MAX_LENGTH = 22;
-static volatile char rootstrings[N_FIELDS][FIELD_MAX_LENGTH] = {};
+
+using str_t = volatile char[FIELD_MAX_LENGTH];
+using arr_t = std::array<str_t, N_FIELDS>;
+
+static arr_t rootstrings = {};
 static volatile bool running = true;
-const int SIGOFFSET = SIGRTMAX;
-const std::string fmt_format_str = []()
+static const int SIGOFFSET = SIGRTMAX;
+static constexpr auto fmt_format_buf = []()
 {
-        std::string f = "[{}";
+        constexpr std::string_view markers[] = {"[{}", " |{}", " |{}]"};
+
+        std::array<char, 1 +
+                         markers[0].size() +
+                         (N_FIELDS - 2) *
+                         markers[1].size() +
+                         markers[2].size()> res;
+        char* resptr = res.data();
+
+        std::copy(markers[0].begin(), markers[0].end(), resptr);
+        resptr += markers[0].size();
+
         for(int i = 0; i < N_FIELDS - 2; ++i)
         {
-                f += " |{}";
+                std::copy(markers[1].begin(), markers[1].end(), resptr);
+                resptr += markers[1].size();
         }
-        f += " |{}]";
-        return f;
+
+        std::copy(markers[2].begin(), markers[2].end(), resptr);
+        resptr += markers[2].size();
+        *resptr = '\0';
+
+        return res;
 }();
+static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
 static Display* dpy = nullptr;
 static int screen;
 static Window root;
@@ -43,15 +64,12 @@ static Window root;
 
 std::string get_root_string()
 {
-        int i = 0;
-        std::string f = fmt::format(FMT_COMPILE("[{}"), const_cast<char*>(rootstrings[i++]));
-        for(int tmp = 0; tmp < N_FIELDS - 2; ++tmp)
-        {
-                f += fmt::format(FMT_COMPILE(" |{}"), const_cast<char*>(rootstrings[i++]));
-        }
-        f += fmt::format(FMT_COMPILE(" |{}]"), const_cast<char*>(rootstrings[i]));
-
-        return f;
+        return std::apply(
+            [&](auto&&... args)
+            {
+                    return fmt::format(fmt_format_sv, const_cast<char*>(args)...);
+            },
+            rootstrings);
 }
 
 void set_root()
@@ -161,12 +179,8 @@ void ShellResponse::resolve() const
 
         const auto cmdres = exec_cmd<true>(command);
 
-        if(cmdres.rc != EXIT_SUCCESS)
-        {
-                xss_exit(EXIT_FAILURE);
-        }
-
-        if(cmdres.output.size() >= FIELD_MAX_LENGTH)
+        if(cmdres.rc != EXIT_SUCCESS ||
+           cmdres.output.size() >= FIELD_MAX_LENGTH)
         {
                 xss_exit(EXIT_FAILURE);
         }
