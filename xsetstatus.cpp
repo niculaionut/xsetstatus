@@ -100,7 +100,6 @@ CmdResult exec_cmd(const char* cmd)
         std::string result;
 
         FILE* pipe = popen(cmd, "r");
-
         if(!pipe)
         {
                 xss_exit(EXIT_FAILURE);
@@ -131,12 +130,10 @@ std::string toggle_lang()
             "EN",
             "RO"
         };
-
         static constexpr const char* commands[2] = {
             "setxkbmap us; setxkbmap -option numpad:mac",
             "setxkbmap ro -variant std"
         };
-
         static bool flag = true;
 
         flag = !flag;
@@ -343,7 +340,7 @@ void setup_x()
         root = RootWindow(dpy, screen);
 }
 
-void interval_loop()
+void wait_for_signals()
 {
         while(running)
         {
@@ -369,7 +366,7 @@ int main()
         setup_x();
         init_statusbar();
         init_signals();
-        interval_loop();
+        wait_for_signals();
 
         XCloseDisplay(dpy);
 }
