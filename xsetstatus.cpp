@@ -19,16 +19,9 @@ static __always_inline void printerr(auto&&... args)
 }
 
 // config variables and root strings array
-//
-constexpr int N_FIELDS = 8;
-constexpr int FIELD_MAX_LENGTH = 22;
 
-using str_t = volatile char[FIELD_MAX_LENGTH];
-using arr_t = std::array<str_t, N_FIELDS>;
-
-static arr_t rootstrings = {};
-static volatile bool running = true;
-static const int SIGOFFSET = SIGRTMAX;
+static constexpr int N_FIELDS = 8;
+static constexpr int FIELD_MAX_LENGTH = 22;
 static constexpr auto fmt_format_buf = []()
 {
         constexpr std::string_view markers[] = {"[{}", " |{}", " |{}]"};
@@ -56,6 +49,10 @@ static constexpr auto fmt_format_buf = []()
         return res;
 }();
 static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
+
+static std::array<volatile char[FIELD_MAX_LENGTH], N_FIELDS> rootstrings = {};
+static volatile bool running = true;
+static const int SIGOFFSET = SIGRTMAX;
 static Display* dpy = nullptr;
 static int screen;
 static Window root;
