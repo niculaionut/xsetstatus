@@ -50,8 +50,9 @@ static constexpr auto fmt_format_buf = []()
 }();
 static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
 
-static std::array<volatile char[FIELD_MAX_LENGTH], N_FIELDS> rootstrings = {};
-static volatile bool running = true;
+static std::array<char[FIELD_MAX_LENGTH], N_FIELDS> rootstrings = {};
+static volatile sig_atomic_t last_sig = -1;
+static volatile sig_atomic_t running = 1;
 static const int SIGOFFSET = SIGRTMAX;
 static Display* dpy = nullptr;
 static int screen;
@@ -64,7 +65,7 @@ static std::string get_root_string()
         return std::apply(
             [&](auto&&... args)
             {
-                    return fmt::format(fmt_format_sv, const_cast<char*>(args)...);
+                    return fmt::format(fmt_format_sv, args...);
             },
             rootstrings);
 }
@@ -91,7 +92,7 @@ struct CmdResult
 };
 
 template<bool OMIT_NEWLINE>
-CmdResult exec_cmd(const char* cmd)
+static CmdResult exec_cmd(const char* cmd)
 {
         std::array<char, 128> buffer;
         std::string result;
@@ -143,7 +144,6 @@ static std::string toggle_lang()
 struct ShellResponse
 {
 public:
-        template<bool>
         void resolve() const;
 
 public:
@@ -154,7 +154,6 @@ public:
 struct BuiltinResponse
 {
 public:
-        template<bool>
         void resolve() const;
 
 public:
@@ -163,7 +162,6 @@ public:
         const int pos;
 };
 
-template<bool SET_IMMEDIATELY>
 void ShellResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
@@ -179,15 +177,9 @@ void ShellResponse::resolve() const
                 xss_exit(EXIT_FAILURE);
         }
 
-        std::strcpy(const_cast<char*>(rootstrings[pos]), cmdres.output.data());
-
-        if constexpr(SET_IMMEDIATELY)
-        {
-                set_root();
-        }
+        std::strcpy(rootstrings[pos], cmdres.output.data());
 }
 
-template<bool SET_IMMEDIATELY>
 void BuiltinResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
@@ -202,12 +194,7 @@ void BuiltinResponse::resolve() const
                 xss_exit(EXIT_FAILURE);
         }
 
-        std::strcpy(const_cast<char*>(rootstrings[pos]), returnstr.data());
-
-        if constexpr(SET_IMMEDIATELY)
-        {
-                set_root();
-        }
+        std::strcpy(rootstrings[pos], returnstr.data());
 }
 
 enum ResponseRootIdx
@@ -256,74 +243,17 @@ static const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
         { SIGOFFSET - 3,  brtable[0] }
 };
 
-static void init_statusbar()
-{
-        for(const auto& r : rtable)
-        {
-                r.resolve<false>();
-        }
-
-        for(const auto& r : brtable)
-        {
-                r.resolve<false>();
-        }
-
-        set_root();
-}
-
-static void run_interval_responses(const int)
+static void run_interval_responses()
 {
         for(const auto& r : interval_responses)
         {
-                r.resolve<false>();
+                r.resolve();
         }
-
-        set_root();
 }
 
-static void shell_handler(const int sig)
-{
-        const auto& r = find_if(sig_shell_responses,
-                                [&](const auto& r)
-                                {
-                                        return r.first == sig;
-                                });
-
-        r->second.resolve<true>();
-}
-
-static void builtin_handler(const int sig)
-{
-        const auto& r = find_if(sig_builtin_responses,
-                                [&](const auto& r)
-                                {
-                                        return r.first == sig;
-                                });
-
-        r->second.resolve<true>();
-}
-
-static void terminator(const int)
-{
-        running = false;
-}
-
-static void init_signals()
-{
-        for(const auto& [sig, r] : sig_shell_responses)
-        {
-                signal(sig, shell_handler);
-        }
-
-        for(const auto& [sig, r] : sig_builtin_responses)
-        {
-                signal(sig, builtin_handler);
-        }
-
-        signal(SIGOFFSET - 4, run_interval_responses);
-        signal(SIGTERM, terminator);
-        signal(SIGINT, terminator);
-}
+static const std::pair<int, void (*)()> sig_group_responses[] = {
+        { SIGOFFSET - 4,  run_interval_responses}
+};
 
 static void setup_x()
 {
@@ -337,10 +267,49 @@ static void setup_x()
         root = RootWindow(dpy, screen);
 }
 
-static void wait_for_signals()
+static void handle_sig(const int sig)
+{
+        const auto r1 = find_if(sig_shell_responses,
+                                [&](const auto& r)
+                                {
+                                        return r.first == sig;
+                                });
+
+        if(r1 != std::cend(sig_shell_responses))
+        {
+                r1->second.resolve();
+                return;
+        }
+
+        const auto r2 = find_if(sig_builtin_responses,
+                                [&](const auto& r)
+                                {
+                                        return r.first == sig;
+                                });
+        if(r2 != std::cend(sig_builtin_responses))
+        {
+                r2->second.resolve();
+                return;
+        }
+
+        const auto r3 = find_if(sig_group_responses,
+                                [&](const auto& r)
+                                {
+                                        return r.first == sig;
+                                });
+
+        r3->second();
+}
+
+static void solve_signals()
 {
         while(running)
         {
+                if(last_sig != -1)
+                {
+                        handle_sig(last_sig);
+                }
+                set_root();
                 pause();
         }
 }
@@ -349,6 +318,52 @@ static bool already_running()
 {
         const auto cmdres = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
         return cmdres.output != "1";
+}
+
+static void u_sig_handler(const int sig)
+{
+        last_sig = sig;
+}
+
+static void terminator(const int)
+{
+        running = 0;
+}
+
+static void init_signals()
+{
+        for(const auto& r : sig_shell_responses)
+        {
+                signal(r.first, u_sig_handler);
+        }
+
+        for(const auto& r : sig_builtin_responses)
+        {
+                signal(r.first, u_sig_handler);
+        }
+
+        for(const auto& r : sig_group_responses)
+        {
+                signal(r.first, u_sig_handler);
+        }
+
+        signal(SIGTERM, terminator);
+        signal(SIGINT, terminator);
+}
+
+static void init_statusbar()
+{
+        for(const auto& r : rtable)
+        {
+                r.resolve();
+        }
+
+        for(const auto& r : brtable)
+        {
+                r.resolve();
+        }
+
+        set_root();
 }
 
 int main()
@@ -363,7 +378,7 @@ int main()
         setup_x();
         init_statusbar();
         init_signals();
-        wait_for_signals();
+        solve_signals();
 
         XCloseDisplay(dpy);
 }
