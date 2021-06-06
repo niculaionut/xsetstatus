@@ -315,12 +315,8 @@ static void solve_signals()
 
 static bool already_running()
 {
-#ifndef NO_X11
         const auto cmdres = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
         return cmdres.output != "1";
-#else
-        return false;
-#endif
 }
 
 static void u_sig_handler(const int sig)
