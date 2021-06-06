@@ -4,18 +4,15 @@
 #include <array>
 #include <unistd.h>
 #include <signal.h>
+#ifndef NO_X11
 #include <X11/Xlib.h>
+#endif
 
 // stl/fmt wrappers
 
 static auto find_if(const auto& container, const auto pred)
 {
         return std::find_if(std::begin(container), std::end(container), pred);
-}
-
-static void printerr(auto&&... args)
-{
-        fmt::print(stderr, args...);
 }
 
 // config variables and root strings array
@@ -54,9 +51,11 @@ static std::array<char[FIELD_MAX_LENGTH], N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
 static volatile sig_atomic_t running = 1;
 static const int SIGOFFSET = SIGRTMAX;
+#ifndef NO_X11
 static Display* dpy = nullptr;
 static int screen;
 static Window root;
+#endif
 
 // xsetroot utils
 
@@ -73,13 +72,20 @@ static std::string get_root_string()
 static void set_root()
 {
         const auto cstatus = get_root_string();
+
+#ifndef NO_X11
         XStoreName(dpy, root, cstatus.data());
         XFlush(dpy);
+#else
+        fmt::print("{}\n", cstatus);
+#endif
 }
 
 static void xss_exit(const int rc)
 {
+#ifndef NO_X11
         XCloseDisplay(dpy);
+#endif
         std::exit(rc);
 }
 
@@ -255,16 +261,18 @@ static const std::pair<int, void (*)()> sig_group_responses[] = {
         { SIGOFFSET - 4,  run_interval_responses}
 };
 
-static void setup_x()
+static void setup()
 {
+#ifndef NO_X11
         dpy = XOpenDisplay(nullptr);
         if(!dpy)
         {
-                printerr("xsetstatus: Failed to open display\n");
+                fmt::print(stderr, "xsetstatus: Failed to open display\n");
                 std::exit(EXIT_FAILURE);
         }
         screen = DefaultScreen(dpy);
         root = RootWindow(dpy, screen);
+#endif
 }
 
 static void handle_sig(const int sig)
@@ -307,8 +315,12 @@ static void solve_signals()
 
 static bool already_running()
 {
+#ifndef NO_X11
         const auto cmdres = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
         return cmdres.output != "1";
+#else
+        return false;
+#endif
 }
 
 static void u_sig_handler(const int sig)
@@ -353,23 +365,25 @@ static void init_statusbar()
         {
                 r.resolve();
         }
-
-        set_root();
 }
 
 int main()
 {
         if(already_running())
         {
-                printerr("xsetstatus: Another instance is already running. "
-                         "Exiting with code {}.\n", EXIT_SUCCESS);
+                fmt::print(stderr,
+                           "xsetstatus: Another instance is already running. "
+                           "Exiting with code {}.\n",
+                           EXIT_SUCCESS);
                 return EXIT_SUCCESS;
         }
 
-        setup_x();
+        setup();
         init_statusbar();
         init_signals();
         solve_signals();
 
+#ifndef NO_X11
         XCloseDisplay(dpy);
+#endif
 }
