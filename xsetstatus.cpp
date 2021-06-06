@@ -269,36 +269,27 @@ static void setup_x()
 
 static void handle_sig(const int sig)
 {
-        const auto r1 = find_if(sig_shell_responses,
-                                [&](const auto& r)
-                                {
-                                        return r.first == sig;
-                                });
-
-        if(r1 != std::cend(sig_shell_responses))
+        const auto pred = [&](const auto& r)
         {
-                r1->second.resolve();
+                return r.first == sig;
+        };
+
+        const auto it_shell = find_if(sig_shell_responses, pred);
+        if(it_shell != std::cend(sig_shell_responses))
+        {
+                it_shell->second.resolve();
                 return;
         }
 
-        const auto r2 = find_if(sig_builtin_responses,
-                                [&](const auto& r)
-                                {
-                                        return r.first == sig;
-                                });
-        if(r2 != std::cend(sig_builtin_responses))
+        const auto it_builtin = find_if(sig_builtin_responses, pred);
+        if(it_builtin != std::cend(sig_builtin_responses))
         {
-                r2->second.resolve();
+                it_builtin->second.resolve();
                 return;
         }
 
-        const auto r3 = find_if(sig_group_responses,
-                                [&](const auto& r)
-                                {
-                                        return r.first == sig;
-                                });
-
-        r3->second();
+        const auto it_group = find_if(sig_group_responses, pred);
+        it_group->second();
 }
 
 static void solve_signals()
