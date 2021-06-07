@@ -1,3 +1,4 @@
+#include "fixedstr.h"
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <array>
@@ -24,32 +25,24 @@ static constexpr auto fmt_format_buf = []()
 {
         constexpr std::string_view markers[] = {"[{}", " |{}", " |{}]"};
 
-        std::array<char, 1 +
-                         markers[0].size() +
-                         (N_FIELDS - 2) *
-                         markers[1].size() +
-                         markers[2].size()> res;
-        char* resptr = res.data();
+        fixed_str<markers[0].size() +
+                  (N_FIELDS - 2) *
+                  markers[1].size() +
+                  markers[2].size()> res;
 
-        std::copy(markers[0].begin(), markers[0].end(), resptr);
-        resptr += markers[0].size();
-
+        res += markers[0];
         for(int i = 0; i < N_FIELDS - 2; ++i)
         {
-                std::copy(markers[1].begin(), markers[1].end(), resptr);
-                resptr += markers[1].size();
+                res += markers[1];
         }
-
-        std::copy(markers[2].begin(), markers[2].end(), resptr);
-        resptr += markers[2].size();
-        *resptr = '\0';
+        res += markers[2];
 
         return res;
 }();
 static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
 
-using field_buffer = std::array<char, FIELD_MAX_LENGTH>;
-using root_str_buffer = std::array<char, ROOT_BUFSIZE>;
+using field_buffer = fixed_str<FIELD_MAX_LENGTH>;
+using root_str_buffer = fixed_str<ROOT_BUFSIZE>;
 
 static std::array<char[FIELD_MAX_LENGTH], N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
@@ -117,14 +110,14 @@ static CmdResult exec_cmd(const char* cmd)
         }
 
         fgets(buf.data(), std::size(buf), pipe);
+        buf.set_size();
         const int rc = pclose(pipe);
 
         if constexpr(OMIT_NEWLINE)
         {
-                const auto buflen  = std::strlen(buf.data());
-                if(buflen > 0 && buf[buflen - 1] == '\n')
+                if(!buf.empty() && buf.back() == '\n')
                 {
-                        buf[buflen - 1] = '\0';
+                        buf.pop_back();
                 }
         }
 
@@ -168,7 +161,6 @@ public:
         void resolve() const;
 
 public:
-        const char* description;
         field_buffer (*fptr)();
         const int pos;
 };
@@ -225,8 +217,8 @@ static constexpr ShellResponse rtable[] = {
 };
 
 static constexpr BuiltinResponse brtable[] = {
-/*        description         pointer to function (handler)   root array index */
-        { "toggle kb lang",   toggle_lang,                    R_LANG }
+/*        pointer to function (handler)   root array index */
+        { toggle_lang,                    R_LANG }
 };
 
 static constexpr ShellResponse interval_responses[] = {
@@ -314,8 +306,17 @@ static void solve_signals()
 static bool already_running()
 {
 #ifndef MULTIPLE_INSTANCES
-        const auto cmdres = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
-        return std::strcmp(cmdres.output.data(), std::to_array("2").data()) == 0;
+        const auto cmdres1 = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
+        if(cmdres1.output == "0")
+        {
+                return false;
+        }
+        if(cmdres1.output != "1")
+        {
+                return true;
+        }
+        const auto cmdres2 = exec_cmd<true>("pgrep -x xsetstatus");
+        return std::atoi(cmdres2.output.data()) != getpid();
 #else
         return false;
 #endif
