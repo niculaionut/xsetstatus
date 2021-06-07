@@ -1,7 +1,7 @@
 #include <fmt/core.h>
-#include <fmt/compile.h>
-#include <string>
+#include <fmt/format.h>
 #include <array>
+#include <utility>
 #include <unistd.h>
 #include <signal.h>
 #ifndef NO_X11
@@ -19,6 +19,7 @@ static auto find_if(const auto& container, const auto pred)
 
 static constexpr int N_FIELDS = 8;
 static constexpr int FIELD_MAX_LENGTH = 22;
+static constexpr int ROOT_BUFSIZE = N_FIELDS * FIELD_MAX_LENGTH;
 static constexpr auto fmt_format_buf = []()
 {
         constexpr std::string_view markers[] = {"[{}", " |{}", " |{}]"};
@@ -47,6 +48,9 @@ static constexpr auto fmt_format_buf = []()
 }();
 static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
 
+using field_buffer = std::array<char, FIELD_MAX_LENGTH>;
+using root_str_buffer = std::array<char, ROOT_BUFSIZE>;
+
 static std::array<char[FIELD_MAX_LENGTH], N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
 static volatile sig_atomic_t running = 1;
@@ -59,14 +63,18 @@ static Window root;
 
 // xsetroot utils
 
-static std::string get_root_string()
+static root_str_buffer get_root_string()
 {
-        return std::apply(
+        root_str_buffer buf;
+
+        *std::apply(
             [&](auto&&... args)
             {
-                    return fmt::format(fmt_format_sv, args...);
+                    return fmt::format_to(buf.data(), fmt_format_sv, args...);
             },
-            rootstrings);
+            rootstrings) = '\0';
+
+        return buf;
 }
 
 static void set_root()
@@ -77,7 +85,7 @@ static void set_root()
         XStoreName(dpy, root, cstatus.data());
         XFlush(dpy);
 #else
-        fmt::print("{}\n", cstatus);
+        fmt::print("{}\n", cstatus.data());
 #endif
 }
 
@@ -93,15 +101,14 @@ static void xss_exit(const int rc)
 
 struct CmdResult
 {
-        const std::string output;
+        const field_buffer output;
         const int rc;
 };
 
 template<bool OMIT_NEWLINE>
 static CmdResult exec_cmd(const char* cmd)
 {
-        std::array<char, 128> buffer;
-        std::string result;
+        field_buffer buf;
 
         FILE* pipe = popen(cmd, "r");
         if(!pipe)
@@ -109,30 +116,28 @@ static CmdResult exec_cmd(const char* cmd)
                 xss_exit(EXIT_FAILURE);
         }
 
-        while(fgets(buffer.data(), buffer.size(), pipe) != nullptr)
-        {
-                result += buffer.data();
-        }
+        fgets(buf.data(), std::size(buf), pipe);
         const int rc = pclose(pipe);
 
         if constexpr(OMIT_NEWLINE)
         {
-                if(!result.empty() && result.back() == '\n')
+                const auto buflen  = std::strlen(buf.data());
+                if(buflen > 0 && buf[buflen - 1] == '\n')
                 {
-                        result.pop_back();
+                        buf[buflen - 1] = '\0';
                 }
         }
 
-        return {std::move(result), rc};
+        return {buf, rc};
 }
 
 // functions for builtin responses
 
-static std::string toggle_lang()
+static field_buffer toggle_lang()
 {
-        static constexpr const char* ltable[2] = {
-            "EN",
-            "RO"
+        static constexpr field_buffer ltable[2] = {
+            {"US"},
+            {"RO"}
         };
         static constexpr const char* commands[2] = {
             "setxkbmap us; setxkbmap -option numpad:mac",
@@ -142,7 +147,7 @@ static std::string toggle_lang()
 
         flag = !flag;
         std::system(commands[flag]);
-        return std::string(ltable[flag]);
+        return ltable[flag];
 }
 
 // Responses/handlers for signals and interval-updated fields
@@ -164,7 +169,7 @@ public:
 
 public:
         const char* description;
-        std::string (*fptr)();
+        field_buffer (*fptr)();
         const int pos;
 };
 
@@ -177,8 +182,7 @@ void ShellResponse::resolve() const
 
         const auto cmdres = exec_cmd<true>(command);
 
-        if(cmdres.rc != EXIT_SUCCESS ||
-           cmdres.output.size() >= FIELD_MAX_LENGTH)
+        if(cmdres.rc != EXIT_SUCCESS)
         {
                 xss_exit(EXIT_FAILURE);
         }
@@ -193,13 +197,7 @@ void BuiltinResponse::resolve() const
                 xss_exit(EXIT_FAILURE);
         }
 
-        const std::string returnstr = fptr();
-
-        if(returnstr.size() >= FIELD_MAX_LENGTH)
-        {
-                xss_exit(EXIT_FAILURE);
-        }
-
+        const field_buffer returnstr = fptr();
         std::strcpy(rootstrings[pos], returnstr.data());
 }
 
@@ -315,8 +313,12 @@ static void solve_signals()
 
 static bool already_running()
 {
+#ifndef MULTIPLE_INSTANCES
         const auto cmdres = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
-        return cmdres.output != "1";
+        return std::strcmp(cmdres.output.data(), std::to_array("2").data()) == 0;
+#else
+        return false;
+#endif
 }
 
 static void u_sig_handler(const int sig)
@@ -382,4 +384,6 @@ int main()
 #ifndef NO_X11
         XCloseDisplay(dpy);
 #endif
+
+        return EXIT_SUCCESS;
 }
