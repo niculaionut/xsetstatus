@@ -20,7 +20,7 @@ make xsetstatus
 
 ### Usage example:
 
-At start-up, run the program in the background. Run a script or a shell command that modifies some properties and then signals the ```xsetstatus``` process appropriately for the fields that need to be updated.
+At start-up, run ```xsetstatus``` in the background. Run a script or a shell command that modifies some properties and then signals the ```xsetstatus``` process appropriately for the fields that need to be updated.
 
 * Increase the volume by 8% and send signal 63 to xsetstatus. The handler sets the last signal to 63. After the workload for the previous signal is finished, the function that updates the volume field is called.
 ```bash
