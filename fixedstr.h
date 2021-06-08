@@ -162,7 +162,7 @@ public:
                 return csize == 0;
         }
 
-        constexpr char* front()
+        constexpr char& front()
         {
                 return elements[0];
         }
