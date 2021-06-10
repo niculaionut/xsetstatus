@@ -60,12 +60,13 @@ static root_str_buffer get_root_string()
 {
         root_str_buffer buf;
 
-        *std::apply(
+        const auto format_res = std::apply(
             [&](auto&&... args)
             {
-                    return fmt::format_to(buf.data(), fmt_format_sv, args...);
+                    return fmt::format_to_n(buf.data(), std::size(buf), fmt_format_sv, args...);
             },
-            rootstrings) = '\0';
+            rootstrings);
+        *format_res.out = '\0';
 
         return buf;
 }
