@@ -44,7 +44,7 @@ static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
 using field_buffer = fixed_str<FIELD_MAX_LENGTH>;
 using root_str_buffer = fixed_str<ROOT_BUFSIZE>;
 
-static std::array<char[FIELD_MAX_LENGTH], N_FIELDS> rootstrings = {};
+static std::array<field_buffer, N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
 static volatile sig_atomic_t running = 1;
 static const int SIGOFFSET = SIGRTMAX;
@@ -63,7 +63,7 @@ static root_str_buffer get_root_string()
         const auto format_res = std::apply(
             [&](auto&&... args)
             {
-                    return fmt::format_to_n(buf.data(), std::size(buf), fmt_format_sv, args...);
+                    return fmt::format_to_n(buf.data(), std::size(buf), fmt_format_sv, args.data()...);
             },
             rootstrings);
         *format_res.out = '\0';
@@ -180,7 +180,7 @@ void ShellResponse::resolve() const
                 xss_exit(EXIT_FAILURE);
         }
 
-        std::strcpy(rootstrings[pos], cmdres.output.data());
+        std::strcpy(rootstrings[pos].data(), cmdres.output.data());
 }
 
 void BuiltinResponse::resolve() const
@@ -191,7 +191,7 @@ void BuiltinResponse::resolve() const
         }
 
         const field_buffer returnstr = fptr();
-        std::strcpy(rootstrings[pos], returnstr.data());
+        std::strcpy(rootstrings[pos].data(), returnstr.data());
 }
 
 enum ResponseRootIdx
