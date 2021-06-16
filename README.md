@@ -12,7 +12,7 @@ Needs a window manager that reads the text from the X root window name and print
 
 ### Building:
 
-Afther cloning the repo, go in its root directory and run:
+Clone the repo, go in its root directory and run:
 
 ```bash
 make xsetstatus
