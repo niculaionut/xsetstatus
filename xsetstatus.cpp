@@ -306,7 +306,7 @@ static void solve_signals()
 
 static bool already_running()
 {
-#ifndef MULTIPLE_INSTANCES
+#ifndef IGNORE_ALREADY_RUNNING
         const auto cmdres1 = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
         if(cmdres1.output == "0")
         {
