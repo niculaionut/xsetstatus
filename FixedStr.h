@@ -3,71 +3,70 @@
 #include <string_view>
 #include <array>
 
-template<std::size_t N>
-class fixed_str
+template<typename DestIt, typename SrcIt>
+static constexpr auto fcpy(DestIt dest, SrcIt src)
 {
-private:
-        template<typename DestIt, typename SrcIt>
-        static constexpr auto fcpy(DestIt dest, SrcIt src)
+        while(*src != '\0')
         {
-                while(*src != '\0')
-                {
-                        *dest++ = *src++;
-                }
-                *dest = '\0';
-                return dest;
+                *dest++ = *src++;
         }
+        *dest = '\0';
+        return dest;
+}
 
-        template<typename DestIt, typename SrcIt>
-        static constexpr auto fncpy(DestIt dest, SrcIt src, std::size_t count)
+template<typename DestIt, typename SrcIt>
+static constexpr auto fncpy(DestIt dest, SrcIt src, std::size_t count)
+{
+        while(count-- != 0)
         {
-                while(count-- != 0)
-                {
-                        *dest++ = *src++;
-                }
-                *dest = '\0';
-                return dest;
+                *dest++ = *src++;
         }
+        *dest = '\0';
+        return dest;
+}
 
+template<std::size_t N>
+class FixedStr
+{
 public:
-        constexpr friend fixed_str operator+(const fixed_str& s1, const fixed_str& s2)
+        constexpr friend FixedStr operator+(const FixedStr& s1, const FixedStr& s2)
         {
-                fixed_str res = s1;
+                FixedStr res = s1;
                 res += s2;
                 return res;
         }
 
 public:
-        constexpr fixed_str()
+        constexpr FixedStr()
         {
                 elements[0] = '\0';
         }
 
-        constexpr fixed_str(const char* cstr)
+        constexpr FixedStr(const char* cstr)
         {
                 csize = fcpy(data(), cstr) - data();
         }
 
-        constexpr fixed_str& operator+=(const fixed_str& other)
+        constexpr FixedStr& operator+=(const FixedStr& other)
         {
                 csize += fcpy(data() + csize, other.data()) - (data() + csize);
                 return *this;
         }
 
-        constexpr fixed_str& operator+=(const char* cstr)
+        constexpr FixedStr& operator+=(const char* cstr)
         {
                 csize += fcpy(data() + csize, cstr) - (data() + csize);
                 return *this;
         }
 
-        constexpr fixed_str& operator+=(const std::string_view sv)
+        constexpr FixedStr& operator+=(const std::string_view sv)
         {
                 fncpy(data() + csize, sv.data(), sv.size());
                 csize += sv.size();
                 return *this;
         }
 
-        constexpr bool operator==(const fixed_str& other) const
+        constexpr bool operator==(const FixedStr& other) const
         {
                 if(csize != other.csize)
                 {

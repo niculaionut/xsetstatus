@@ -1,4 +1,4 @@
-#include "fixedstr.h"
+#include "FixedStr.h"
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <array>
@@ -25,10 +25,10 @@ static constexpr auto fmt_format_buf = []()
 {
         constexpr std::string_view markers[] = {"[{}", " |{}", " |{}]"};
 
-        fixed_str<markers[0].size() +
-                  (N_FIELDS - 2) *
-                  markers[1].size() +
-                  markers[2].size()> res;
+        FixedStr<markers[0].size() +
+                 (N_FIELDS - 2) *
+                 markers[1].size() +
+                 markers[2].size()> res;
 
         res += markers[0];
         for(int i = 0; i < N_FIELDS - 2; ++i)
@@ -41,10 +41,10 @@ static constexpr auto fmt_format_buf = []()
 }();
 static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
 
-using field_buffer = fixed_str<FIELD_MAX_LENGTH>;
-using root_str_buffer = fixed_str<ROOT_BUFSIZE>;
+using field_buffer_t = FixedStr<FIELD_MAX_LENGTH>;
+using root_str_buffer_t = FixedStr<ROOT_BUFSIZE>;
 
-static std::array<field_buffer, N_FIELDS> rootstrings = {};
+static std::array<field_buffer_t, N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
 static volatile sig_atomic_t running = 1;
 static const int SIGOFFSET = SIGRTMAX;
@@ -56,9 +56,9 @@ static Window root;
 
 // xsetroot utils
 
-static root_str_buffer get_root_string()
+static root_str_buffer_t get_root_string()
 {
-        root_str_buffer buf;
+        root_str_buffer_t buf;
 
         const auto format_res = std::apply(
             [&](auto&&... args)
@@ -95,14 +95,14 @@ static void xss_exit(const int rc)
 
 struct CmdResult
 {
-        const field_buffer output;
+        const field_buffer_t output;
         const int rc;
 };
 
 template<bool OMIT_NEWLINE>
 static CmdResult exec_cmd(const char* cmd)
 {
-        field_buffer buf;
+        field_buffer_t buf;
 
         FILE* pipe = popen(cmd, "r");
         if(!pipe)
@@ -127,9 +127,9 @@ static CmdResult exec_cmd(const char* cmd)
 
 // functions for builtin responses
 
-static field_buffer toggle_lang()
+static field_buffer_t toggle_lang()
 {
-        static constexpr field_buffer ltable[2] = {
+        static constexpr field_buffer_t ltable[2] = {
             {"US"},
             {"RO"}
         };
@@ -162,7 +162,7 @@ public:
         void resolve() const;
 
 public:
-        field_buffer (*fptr)();
+        field_buffer_t (*fptr)();
         const int pos;
 };
 
@@ -190,7 +190,7 @@ void BuiltinResponse::resolve() const
                 xss_exit(EXIT_FAILURE);
         }
 
-        const field_buffer returnstr = fptr();
+        const field_buffer_t returnstr = fptr();
         std::strcpy(rootstrings[pos].data(), returnstr.data());
 }
 
