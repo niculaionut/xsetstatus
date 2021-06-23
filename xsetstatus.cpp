@@ -68,12 +68,6 @@ static Window root;
 #endif
 
 /* structs */
-struct CmdResult
-{
-        const field_buffer_t output;
-        const int rc;
-};
-
 struct ShellResponse
 {
 public:
@@ -90,23 +84,22 @@ public:
         void resolve() const;
 
 public:
-        field_buffer_t (*fptr)();
+        void (*fptr)(field_buffer_t&);
         const int pos;
 };
 
 /* template function declarations*/
 template<bool OMIT_NEWLINE>
-static CmdResult exec_cmd(const char* cmd);
+static int exec_cmd(const char*, field_buffer_t&);
 
 /* function declarations */
-static root_str_buffer_t get_root_string();
 static void set_root();
-static void xss_exit(const int rc);
-static field_buffer_t toggle_lang();
+static void xss_exit(const int);
+static void toggle_lang(field_buffer_t&);
 static void setup();
-static void handle_sig(const int sig);
+static void handle_sig(const int);
 static bool already_running();
-static void u_sig_handler(const int sig);
+static void u_sig_handler(const int);
 static void terminator(const int);
 static void init_signals();
 static void init_statusbar();
@@ -161,14 +154,12 @@ void ShellResponse::resolve() const
                 xss_exit(EXIT_FAILURE);
         }
 
-        const auto cmdres = exec_cmd<true>(command);
+        const auto rc = exec_cmd<true>(command, rootstrings[pos]);
 
-        if(cmdres.rc != EXIT_SUCCESS)
+        if(rc != EXIT_SUCCESS)
         {
                 xss_exit(EXIT_FAILURE);
         }
-
-        std::strcpy(rootstrings[pos].data(), cmdres.output.data());
 }
 
 void BuiltinResponse::resolve() const
@@ -178,37 +169,36 @@ void BuiltinResponse::resolve() const
                 xss_exit(EXIT_FAILURE);
         }
 
-        const field_buffer_t returnstr = fptr();
-        std::strcpy(rootstrings[pos].data(), returnstr.data());
+        fptr(rootstrings[pos]);
 }
 
 template<bool OMIT_NEWLINE>
-CmdResult exec_cmd(const char* cmd)
+int exec_cmd(const char* cmd, field_buffer_t& output_buf)
 {
-        field_buffer_t buf;
-
         FILE* pipe = popen(cmd, "r");
         if(!pipe)
         {
                 xss_exit(EXIT_FAILURE);
         }
 
-        fgets(buf.data(), std::size(buf) + 1, pipe);
-        buf.set_size();
+        if(fgets(output_buf.data(), std::size(output_buf) + 1, pipe) != nullptr)
+        {
+                output_buf.set_size();
+        }
         const int rc = pclose(pipe);
 
         if constexpr(OMIT_NEWLINE)
         {
-                if(!buf.empty() && buf.back() == '\n')
+                if(!output_buf.empty() && output_buf.back() == '\n')
                 {
-                        buf.pop_back();
+                        output_buf.pop_back();
                 }
         }
 
-        return {buf, rc};
+        return rc;
 }
 
-root_str_buffer_t get_root_string()
+void set_root()
 {
         root_str_buffer_t buf;
 
@@ -220,18 +210,11 @@ root_str_buffer_t get_root_string()
             rootstrings);
         *format_res.out = '\0';
 
-        return buf;
-}
-
-void set_root()
-{
-        const auto cstatus = get_root_string();
-
 #ifndef NO_X11
-        XStoreName(dpy, root, cstatus.data());
+        XStoreName(dpy, root, buf.data());
         XFlush(dpy);
 #else
-        fmt::print("{}\n", cstatus.data());
+        fmt::print("{}\n", buf.data());
 #endif
 }
 
@@ -243,7 +226,7 @@ void xss_exit(const int rc)
         std::exit(rc);
 }
 
-field_buffer_t toggle_lang()
+void toggle_lang(field_buffer_t& output_buf)
 {
         static constexpr field_buffer_t ltable[2] = {
                 {"US"},
@@ -257,7 +240,7 @@ field_buffer_t toggle_lang()
 
         flag = !flag;
         std::system(commands[flag]);
-        return ltable[flag];
+        output_buf = ltable[flag];
 }
 
 void setup()
@@ -302,18 +285,31 @@ void handle_sig(const int sig)
 bool already_running()
 {
 #ifndef IGNORE_ALREADY_RUNNING
-        const auto cmdres1 = exec_cmd<true>("pgrep -x xsetstatus | wc -l");
-        if(cmdres1.output == "0")
+        field_buffer_t output;
+        int rc;
+
+        rc = exec_cmd<true>("pgrep -x xsetstatus | wc -l", output);
+        if(rc != EXIT_SUCCESS)
+        {
+                std::exit(EXIT_FAILURE);
+        }
+
+        if(output == "0")
         {
                 return false;
         }
-        if(cmdres1.output != "1")
+        if(output != "1")
         {
                 return true;
         }
 
-        const auto cmdres2 = exec_cmd<true>("pgrep -x xsetstatus");
-        return std::atoi(cmdres2.output.data()) != getpid();
+        rc = exec_cmd<true>("pgrep -x xsetstatus", output);
+        if(rc != EXIT_SUCCESS)
+        {
+                std::exit(EXIT_FAILURE);
+        }
+
+        return std::atoi(output.data()) != getpid();
 #else
         return false;
 #endif
