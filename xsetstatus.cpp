@@ -89,7 +89,7 @@ public:
 };
 
 /* template function declarations*/
-template<bool OMIT_NEWLINE>
+template<bool>
 static int exec_cmd(const char*, field_buffer_t&);
 
 /* function declarations */
@@ -172,7 +172,7 @@ void BuiltinResponse::resolve() const
         fptr(rootstrings[pos]);
 }
 
-template<bool OMIT_NEWLINE>
+template<bool omit_newline>
 int exec_cmd(const char* cmd, field_buffer_t& output_buf)
 {
         FILE* pipe = popen(cmd, "r");
@@ -187,7 +187,7 @@ int exec_cmd(const char* cmd, field_buffer_t& output_buf)
         }
         const int rc = pclose(pipe);
 
-        if constexpr(OMIT_NEWLINE)
+        if constexpr(omit_newline)
         {
                 if(!output_buf.empty() && output_buf.back() == '\n')
                 {
