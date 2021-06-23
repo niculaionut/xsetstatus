@@ -107,7 +107,7 @@ static void run_interval_responses();
 static void solve_signals();
 
 /* signal configs  */
-static constexpr ShellResponse rtable[] = {
+static constexpr ShellResponse sr_table[] = {
 /*        shell command/script   index in root array */
         { "xss-get-time",        R_TIME },
         { "xss-get-load",        R_LOAD },
@@ -118,27 +118,27 @@ static constexpr ShellResponse rtable[] = {
         { "xss-get-date",        R_DATE },
 };
 
-static constexpr BuiltinResponse brtable[] = {
+static constexpr BuiltinResponse br_table[] = {
 /*        pointer to function (handler)   root array index */
         { toggle_lang,                    R_LANG }
 };
 
 static constexpr ShellResponse interval_responses[] = {
-        rtable[0],
-        rtable[1],
-        rtable[2],
-        rtable[5],
+        sr_table[0],
+        sr_table[1],
+        sr_table[2],
+        sr_table[5],
 };
 
 static const std::pair<int, ShellResponse> sig_shell_responses[] = {
 /*        signal value    ShellResponse instance */
-        { SIGOFFSET - 1,  rtable[3] },
-        { SIGOFFSET - 2,  rtable[4] }
+        { SIGOFFSET - 1,  sr_table[3] },
+        { SIGOFFSET - 2,  sr_table[4] }
 };
 
 static const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
 /*        signal value    BuiltinResponse instance */
-        { SIGOFFSET - 3,  brtable[0] }
+        { SIGOFFSET - 3,  br_table[0] }
 };
 
 static const std::pair<int, void (*)()> sig_group_responses[] = {
@@ -348,12 +348,12 @@ void init_signals()
 
 void init_statusbar()
 {
-        for(const auto& r : rtable)
+        for(const auto& r : sr_table)
         {
                 r.resolve();
         }
 
-        for(const auto& r : brtable)
+        for(const auto& r : br_table)
         {
                 r.resolve();
         }
