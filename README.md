@@ -7,7 +7,7 @@ Needs a window manager that reads the text from the X root window name and print
 
 ### Dependencies:
 + libx11-dev
-+ libfmt
++ libfmt-dev
 + c++20-compatible compiler
 
 ### Building:
