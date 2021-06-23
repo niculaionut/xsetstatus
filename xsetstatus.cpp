@@ -193,7 +193,7 @@ CmdResult exec_cmd(const char* cmd)
                 xss_exit(EXIT_FAILURE);
         }
 
-        fgets(buf.data(), std::size(buf), pipe);
+        fgets(buf.data(), std::size(buf) + 1, pipe);
         buf.set_size();
         const int rc = pclose(pipe);
 
