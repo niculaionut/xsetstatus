@@ -123,20 +123,20 @@ static constexpr BuiltinResponse br_table[] = {
         { toggle_lang,                    R_LANG }
 };
 
-static constexpr ShellResponse interval_responses[] = {
-        sr_table[0],
-        sr_table[1],
-        sr_table[2],
-        sr_table[5],
+static constexpr const ShellResponse* interval_responses[] = {
+        &sr_table[0],
+        &sr_table[1],
+        &sr_table[2],
+        &sr_table[5],
 };
 
-static const std::pair<int, ShellResponse> sig_shell_responses[] = {
+static const std::pair<int, const ShellResponse&> sig_shell_responses[] = {
 /*        signal value    ShellResponse instance */
         { SIGOFFSET - 1,  sr_table[3] },
         { SIGOFFSET - 2,  sr_table[4] }
 };
 
-static const std::pair<int, BuiltinResponse> sig_builtin_responses[] = {
+static const std::pair<int, const BuiltinResponse&> sig_builtin_responses[] = {
 /*        signal value    BuiltinResponse instance */
         { SIGOFFSET - 3,  br_table[0] }
 };
@@ -363,7 +363,7 @@ void run_interval_responses()
 {
         for(const auto& r : interval_responses)
         {
-                r.resolve();
+                r->resolve();
         }
 }
 
