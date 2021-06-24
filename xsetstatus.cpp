@@ -269,11 +269,11 @@ void toggle_lang(field_buffer_t& output_buf)
                 "setxkbmap us; setxkbmap -option numpad:mac",
                 "setxkbmap ro -variant std"
         };
-        static bool flag = true;
+        static unsigned idx = 1;
 
-        flag = !flag;
-        std::system(commands[flag]);
-        output_buf = ltable[flag];
+        idx = !idx;
+        std::system(commands[idx]);
+        output_buf = ltable[idx];
 }
 
 void toggle_cpu_gov(field_buffer_t& output_buf)
@@ -286,11 +286,11 @@ void toggle_cpu_gov(field_buffer_t& output_buf)
                 "xss-set-save",
                 "xss-set-perf"
         };
-        static bool flag = true;
+        static unsigned idx = 1;
 
-        flag = !flag;
-        std::system(commands[flag]);
-        output_buf = freq_table[flag];
+        idx = !idx;
+        std::system(commands[idx]);
+        output_buf = freq_table[idx];
 }
 
 void setup()
