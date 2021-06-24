@@ -2,6 +2,7 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <array>
+#include <vector>
 #include <utility>
 #include <unistd.h>
 #include <signal.h>
@@ -16,7 +17,7 @@ static auto find_if(const auto& container, const auto pred)
 }
 
 /* global constexpr variables */
-static constexpr int N_FIELDS = 8;
+static constexpr int N_FIELDS = 9;
 static constexpr int FIELD_MAX_LENGTH = 22;
 static constexpr int ROOT_BUFSIZE = N_FIELDS * FIELD_MAX_LENGTH;
 static constexpr auto fmt_format_buf = []()
@@ -43,6 +44,9 @@ static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
 using field_buffer_t = FixedStr<FIELD_MAX_LENGTH>;
 using root_str_buffer_t = FixedStr<ROOT_BUFSIZE>;
 
+template<typename T>
+using response_table_t = std::vector<T>;
+
 /* enums */
 enum ResponseRootIdx
 {
@@ -52,6 +56,7 @@ enum ResponseRootIdx
         R_VOL,
         R_MIC,
         R_MEM,
+        R_GOV,
         R_LANG,
         R_DATE
 };
@@ -60,7 +65,9 @@ enum ResponseRootIdx
 static std::array<field_buffer_t, N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
 static volatile sig_atomic_t running = 1;
-static const int SIGOFFSET = SIGRTMAX;
+static const int CSIGRTMAX = SIGRTMAX;
+static const int CSIGRTMIN = SIGRTMIN;
+static const int SIGRANGE = CSIGRTMAX - CSIGRTMIN + 1;
 #ifndef NO_X11
 static Display* dpy = nullptr;
 static int screen;
@@ -92,23 +99,26 @@ public:
 template<bool>
 static int exec_cmd(const char*, field_buffer_t&);
 
+static void insert_response(auto&, const int, const auto);
+
 /* function declarations */
 static void set_root();
 static void xss_exit(const int);
 static void toggle_lang(field_buffer_t&);
+static void toggle_cpu_gov(field_buffer_t&);
 static void setup();
 static void handle_sig(const int);
 static bool already_running();
 static void u_sig_handler(const int);
 static void terminator(const int);
-static void init_signals();
+static void init_terminator();
 static void init_statusbar();
 static void run_interval_responses();
 static void solve_signals();
 
 /* signal configs  */
 static constexpr ShellResponse sr_table[] = {
-/*        shell command/script   index in root array */
+       /* shell command/script   root array index */
         { "xss-get-time",        R_TIME },
         { "xss-get-load",        R_LOAD },
         { "xss-get-temp",        R_TEMP },
@@ -119,32 +129,50 @@ static constexpr ShellResponse sr_table[] = {
 };
 
 static constexpr BuiltinResponse br_table[] = {
-/*        pointer to function (handler)   root array index */
-        { toggle_lang,                    R_LANG }
+       /* pointer to function (handler)   root array index */
+        { toggle_lang,                    R_LANG },
+        { toggle_cpu_gov,                 R_GOV }
 };
 
 static constexpr const ShellResponse* interval_responses[] = {
+     /* pointer to ShellResponse instance */
         &sr_table[0],
         &sr_table[1],
         &sr_table[2],
         &sr_table[5],
 };
 
-static const std::pair<int, const ShellResponse&> sig_shell_responses[] = {
-/*        signal value    ShellResponse instance */
-        { SIGOFFSET - 1,  sr_table[3] },
-        { SIGOFFSET - 2,  sr_table[4] }
-};
+static const response_table_t<const ShellResponse*> sig_shell_responses = []()
+{
+        response_table_t<const ShellResponse*> responses(SIGRANGE, nullptr);
 
-static const std::pair<int, const BuiltinResponse&> sig_builtin_responses[] = {
-/*        signal value    BuiltinResponse instance */
-        { SIGOFFSET - 3,  br_table[0] }
-};
+                                /* signal value   pointer to ShellResponse instance */
+        insert_response(responses, CSIGRTMAX - 1, &sr_table[3]);
+        insert_response(responses, CSIGRTMAX - 2, &sr_table[4]);
 
-static const std::pair<int, void (*)()> sig_group_responses[] = {
-/*        signal value    pointer to function */
-        { SIGOFFSET - 4,  run_interval_responses}
-};
+        return responses;
+}();
+
+static const response_table_t<const BuiltinResponse*> sig_builtin_responses = []()
+{
+        response_table_t<const BuiltinResponse*> responses(SIGRANGE, nullptr);
+
+                                /* signal value   pointer to BuiltinResponse instance */
+        insert_response(responses, CSIGRTMAX - 3, &br_table[0]);
+        insert_response(responses, CSIGRTMAX - 5, &br_table[1]);
+
+        return responses;
+}();
+
+static const response_table_t<void (*)()> sig_group_responses = []()
+{
+        response_table_t<void (*)()> responses(SIGRANGE, nullptr);
+
+                                /* signal value   pointer to function */
+        insert_response(responses, CSIGRTMAX - 4, &run_interval_responses);
+
+        return responses;
+}();
 
 /* function definitions */
 void ShellResponse::resolve() const
@@ -155,7 +183,6 @@ void ShellResponse::resolve() const
         }
 
         const auto rc = exec_cmd<true>(command, rootstrings[pos]);
-
         if(rc != EXIT_SUCCESS)
         {
                 xss_exit(EXIT_FAILURE);
@@ -196,6 +223,12 @@ int exec_cmd(const char* cmd, field_buffer_t& output_buf)
         }
 
         return rc;
+}
+
+void insert_response(auto& arr, const int sig, const auto val)
+{
+        arr[sig - CSIGRTMIN] = val;
+        signal(sig, u_sig_handler);
 }
 
 void set_root()
@@ -243,6 +276,23 @@ void toggle_lang(field_buffer_t& output_buf)
         output_buf = ltable[flag];
 }
 
+void toggle_cpu_gov(field_buffer_t& output_buf)
+{
+        static constexpr field_buffer_t freq_table[2] = {
+                {"*"},
+                {"$"}
+        };
+        static constexpr const char* commands[2] = {
+                "xss-set-save",
+                "xss-set-perf"
+        };
+        static bool flag = true;
+
+        flag = !flag;
+        std::system(commands[flag]);
+        output_buf = freq_table[flag];
+}
+
 void setup()
 {
 #ifndef NO_X11
@@ -259,27 +309,18 @@ void setup()
 
 void handle_sig(const int sig)
 {
-        const auto pred = [&](const auto& r)
+        if(sig_shell_responses[sig] != nullptr)
         {
-                return r.first == sig;
-        };
-
-        const auto it_shell = find_if(sig_shell_responses, pred);
-        if(it_shell != std::cend(sig_shell_responses))
-        {
-                it_shell->second.resolve();
-                return;
+                sig_shell_responses[sig]->resolve();
         }
-
-        const auto it_builtin = find_if(sig_builtin_responses, pred);
-        if(it_builtin != std::cend(sig_builtin_responses))
+        else if(sig_builtin_responses[sig] != nullptr)
         {
-                it_builtin->second.resolve();
-                return;
+                sig_builtin_responses[sig]->resolve();
         }
-
-        const auto it_group = find_if(sig_group_responses, pred);
-        it_group->second();
+        else
+        {
+                sig_group_responses[sig]();
+        }
 }
 
 bool already_running()
@@ -325,21 +366,17 @@ void terminator(const int)
         running = 0;
 }
 
-void init_signals()
+void init_terminator()
 {
-        for(const auto& r : sig_shell_responses)
+        for(int sig = CSIGRTMIN; sig <= CSIGRTMAX; ++sig)
         {
-                signal(r.first, u_sig_handler);
-        }
+                struct sigaction current;
 
-        for(const auto& r : sig_builtin_responses)
-        {
-                signal(r.first, u_sig_handler);
-        }
-
-        for(const auto& r : sig_group_responses)
-        {
-                signal(r.first, u_sig_handler);
+                sigaction(sig, nullptr, &current);
+                if(current.sa_handler == nullptr)
+                {
+                        signal(sig, terminator);
+                }
         }
 
         signal(SIGTERM, terminator);
@@ -373,7 +410,7 @@ void solve_signals()
         {
                 if(last_sig != -1)
                 {
-                        handle_sig(last_sig);
+                        handle_sig(last_sig - CSIGRTMIN);
                 }
                 set_root();
                 pause();
@@ -391,9 +428,16 @@ int main()
                 return EXIT_SUCCESS;
         }
 
+#ifdef NO_X11
+        fmt::print(stderr,
+                   "xsetstatus: running in NO_X11 mode\n"
+                   "Status bar content will be printed to stdout. PID is {}.\n\n",
+                   getpid());
+#endif
+
         setup();
         init_statusbar();
-        init_signals();
+        init_terminator();
         solve_signals();
 
 #ifndef NO_X11
