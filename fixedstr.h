@@ -67,21 +67,8 @@ public:
 
         constexpr bool operator==(const FixedStr& other) const
         {
-                if(csize != other.csize)
-                {
-                        return false;
-                }
-
-                const auto lim = end();
-                auto it1 = begin(), it2 = other.begin();
-                while(it1 != lim)
-                {
-                        if(*it1++ != *it2++)
-                        {
-                                return false;
-                        }
-                }
-                return true;
+                return csize == other.csize &&
+                       std::char_traits<char>::compare(begin(), other.begin(), csize) == 0;
         }
 
         constexpr char& operator[](const std::size_t pos)
@@ -182,12 +169,7 @@ public:
 
         constexpr void set_size()
         {
-                const char* ptr = data();
-                csize = 0;
-                while(*ptr++ != '\0')
-                {
-                        ++csize;
-                }
+                csize = std::char_traits<char>::length(begin());
         }
 
 private:
