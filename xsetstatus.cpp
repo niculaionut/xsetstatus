@@ -98,6 +98,27 @@ static void init_statusbar();
 static void run_interval_responses();
 static void solve_signals();
 
+/* struct definitions */
+struct ShellResponse
+{
+public:
+        void resolve() const;
+
+public:
+        const char* command;
+        const int pos;
+};
+
+struct BuiltinResponse
+{
+public:
+        void resolve() const;
+
+public:
+        void (*fptr)(field_buffer_t&);
+        const int pos;
+};
+
 /* signal configs  */
 static constexpr ShellResponse sr_table[] = {
        /* shell command/script   root array index */
@@ -141,27 +162,6 @@ static const response_table_t rt_responses = []()
 
         return responses;
 }();
-
-/* struct definitions */
-struct ShellResponse
-{
-public:
-        void resolve() const;
-
-public:
-        const char* command;
-        const int pos;
-};
-
-struct BuiltinResponse
-{
-public:
-        void resolve() const;
-
-public:
-        void (*fptr)(field_buffer_t&);
-        const int pos;
-};
 
 /* member function definitions */
 void ShellResponse::resolve() const
