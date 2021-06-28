@@ -76,27 +76,6 @@ static int screen;
 static Window root;
 #endif
 
-/* struct definitions */
-struct ShellResponse
-{
-public:
-        void resolve() const;
-
-public:
-        const char* command;
-        const int pos;
-};
-
-struct BuiltinResponse
-{
-public:
-        void resolve() const;
-
-public:
-        void (*fptr)(field_buffer_t&);
-        const int pos;
-};
-
 /* template function declarations */
 template<bool>
 static int exec_cmd(const char*, field_buffer_t&);
@@ -163,7 +142,28 @@ static const response_table_t rt_responses = []()
         return responses;
 }();
 
-/* function definitions */
+/* struct definitions */
+struct ShellResponse
+{
+public:
+        void resolve() const;
+
+public:
+        const char* command;
+        const int pos;
+};
+
+struct BuiltinResponse
+{
+public:
+        void resolve() const;
+
+public:
+        void (*fptr)(field_buffer_t&);
+        const int pos;
+};
+
+/* member function definitions */
 void ShellResponse::resolve() const
 {
         if(pos < 0 || pos >= N_FIELDS)
@@ -188,6 +188,7 @@ void BuiltinResponse::resolve() const
         fptr(rootstrings[pos]);
 }
 
+/* function / template function definitions */
 template<bool omit_newline>
 int exec_cmd(const char* cmd, field_buffer_t& output_buf)
 {
