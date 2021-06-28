@@ -20,7 +20,7 @@ static auto find_if(const auto& container, const auto pred)
 static constexpr int N_FIELDS = 9;
 static constexpr int FIELD_MAX_LENGTH = 22;
 static constexpr int ROOT_BUFSIZE = N_FIELDS * FIELD_MAX_LENGTH;
-static constexpr auto fmt_format_buf = []()
+static constexpr auto fmt_format_str = []()
 {
         constexpr std::string_view markers[] = {"[{}", " |{}", " |{}]"};
 
@@ -38,14 +38,6 @@ static constexpr auto fmt_format_buf = []()
 
         return res;
 }();
-static constexpr std::string_view fmt_format_sv(fmt_format_buf.data());
-
-/* using declarations */
-using field_buffer_t = FixedStr<FIELD_MAX_LENGTH>;
-using root_str_buffer_t = FixedStr<ROOT_BUFSIZE>;
-
-template<typename T>
-using response_table_t = std::vector<T>;
 
 /* enums */
 enum ResponseRootIdx
@@ -61,6 +53,16 @@ enum ResponseRootIdx
         R_DATE
 };
 
+/* struct declarations */
+struct ShellResponse;
+struct BuiltinResponse;
+
+/* using declarations */
+using field_buffer_t = FixedStr<FIELD_MAX_LENGTH>;
+using root_str_buffer_t = FixedStr<ROOT_BUFSIZE>;
+using response_tuple_t = std::tuple<const ShellResponse*, const BuiltinResponse*, void (*)()>;
+using response_table_t = std::vector<response_tuple_t>;
+
 /* global variables */
 static std::array<field_buffer_t, N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
@@ -74,7 +76,7 @@ static int screen;
 static Window root;
 #endif
 
-/* structs */
+/* struct definitions */
 struct ShellResponse
 {
 public:
@@ -95,10 +97,11 @@ public:
         const int pos;
 };
 
-/* template function declarations*/
+/* template function declarations */
 template<bool>
 static int exec_cmd(const char*, field_buffer_t&);
 
+template<std::size_t>
 static void insert_response(auto&, const int, const auto);
 
 /* function declarations */
@@ -142,34 +145,20 @@ static constexpr const ShellResponse* interval_responses[] = {
         &sr_table[5],
 };
 
-static const response_table_t<const ShellResponse*> sig_shell_responses = []()
+static const response_table_t rt_responses = []()
 {
-        response_table_t<const ShellResponse*> responses(SIGRANGE, nullptr);
+        response_table_t responses(SIGRANGE, {nullptr, nullptr, nullptr});
 
-                                /* signal value   pointer to ShellResponse instance */
-        insert_response(responses, CSIGRTMAX - 1, &sr_table[3]);
-        insert_response(responses, CSIGRTMAX - 2, &sr_table[4]);
+     /* shell responses               signal value    pointer to ShellResponse instance */
+        insert_response<0>(responses, CSIGRTMAX - 1,  &sr_table[3]);
+        insert_response<0>(responses, CSIGRTMAX - 2,  &sr_table[4]);
 
-        return responses;
-}();
+     /* builtin responses             signal value    pointer to BuiltinResponse instance */
+        insert_response<1>(responses, CSIGRTMAX - 3,  &br_table[0]);
+        insert_response<1>(responses, CSIGRTMAX - 5,  &br_table[1]);
 
-static const response_table_t<const BuiltinResponse*> sig_builtin_responses = []()
-{
-        response_table_t<const BuiltinResponse*> responses(SIGRANGE, nullptr);
-
-                                /* signal value   pointer to BuiltinResponse instance */
-        insert_response(responses, CSIGRTMAX - 3, &br_table[0]);
-        insert_response(responses, CSIGRTMAX - 5, &br_table[1]);
-
-        return responses;
-}();
-
-static const response_table_t<void (*)()> sig_group_responses = []()
-{
-        response_table_t<void (*)()> responses(SIGRANGE, nullptr);
-
-                                /* signal value   pointer to function */
-        insert_response(responses, CSIGRTMAX - 4, &run_interval_responses);
+     /* group responses               signal value    pointer to function */
+        insert_response<2>(responses, CSIGRTMAX - 4,  &run_interval_responses);
 
         return responses;
 }();
@@ -225,9 +214,10 @@ int exec_cmd(const char* cmd, field_buffer_t& output_buf)
         return rc;
 }
 
+template<std::size_t pos>
 void insert_response(auto& arr, const int sig, const auto val)
 {
-        arr[sig - CSIGRTMIN] = val;
+        std::get<pos>(arr[sig - CSIGRTMIN]) = val;
         signal(sig, u_sig_handler);
 }
 
@@ -238,7 +228,8 @@ void set_root()
         const auto format_res = std::apply(
             [&](auto&&... args)
             {
-                    return fmt::format_to_n(buf.data(), std::size(buf), fmt_format_sv, args.data()...);
+                    return fmt::format_to_n(buf.data(), std::size(buf),
+                                            fmt_format_str.data(), args.data()...);
             },
             rootstrings);
         *format_res.out = '\0';
@@ -265,10 +256,12 @@ void toggle_lang(field_buffer_t& output_buf)
                 {"US"},
                 {"RO"}
         };
+
         static constexpr const char* commands[2] = {
                 "setxkbmap us; setxkbmap -option numpad:mac",
                 "setxkbmap ro -variant std"
         };
+
         static unsigned idx = 1;
 
         idx = !idx;
@@ -282,10 +275,12 @@ void toggle_cpu_gov(field_buffer_t& output_buf)
                 {"*"},
                 {"$"}
         };
+
         static constexpr const char* commands[2] = {
                 "xss-set-save",
                 "xss-set-perf"
         };
+
         static unsigned idx = 1;
 
         idx = !idx;
@@ -309,17 +304,20 @@ void setup()
 
 void handle_sig(const int sig)
 {
-        if(sig_shell_responses[sig] != nullptr)
+        const auto& sig_resp = rt_responses[sig];
+
+        if(auto* shellptr = std::get<0>(sig_resp))
         {
-                sig_shell_responses[sig]->resolve();
+                shellptr->resolve();
         }
-        else if(sig_builtin_responses[sig] != nullptr)
+        else if(auto* builtinptr = std::get<1>(sig_resp))
         {
-                sig_builtin_responses[sig]->resolve();
+                builtinptr->resolve();
         }
         else
         {
-                sig_group_responses[sig]();
+                auto* fptr = std::get<2>(sig_resp);
+                fptr();
         }
 }
 
