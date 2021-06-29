@@ -37,6 +37,11 @@ public:
         {
         }
 
+        constexpr operator std::string_view() const
+        {
+                return std::string_view(elements.data(), csize);
+        }
+
         constexpr FixedStr& operator=(const FixedStr& other)
         {
                 std::copy_n(other.begin(), other.csize + 1, begin());

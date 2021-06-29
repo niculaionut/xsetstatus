@@ -229,8 +229,10 @@ void set_root()
         const auto format_res = std::apply(
             [&](auto&&... args)
             {
-                    return fmt::format_to_n(buf.data(), std::size(buf),
-                                            fmt_format_str.data(), args.data()...);
+                    return fmt::format_to_n(buf.data(),
+                                            std::size(buf),
+                                            std::string_view(fmt_format_str),
+                                            std::string_view(args)...);
             },
             rootstrings);
         *format_res.out = '\0';
