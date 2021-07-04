@@ -10,12 +10,6 @@
 #include <X11/Xlib.h>
 #endif
 
-/* stl wrappers */
-static auto find_if(const auto& container, const auto pred)
-{
-        return std::find_if(std::begin(container), std::end(container), pred);
-}
-
 /* global constexpr variables */
 static constexpr int N_FIELDS = 9;
 static constexpr int FIELD_MAX_LENGTH = 22;
