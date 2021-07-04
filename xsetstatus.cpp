@@ -195,18 +195,17 @@ int exec_cmd(const char* cmd, field_buffer_t& output_buf)
         if(fgets(output_buf.data(), std::size(output_buf) + 1, pipe) != nullptr)
         {
                 output_buf.set_size();
-        }
-        const int rc = pclose(pipe);
 
-        if constexpr(omit_newline)
-        {
-                if(!output_buf.empty() && output_buf.back() == '\n')
+                if constexpr(omit_newline)
                 {
-                        output_buf.pop_back();
+                        if(!output_buf.empty() && output_buf.back() == '\n')
+                        {
+                                output_buf.pop_back();
+                        }
                 }
         }
 
-        return rc;
+        return pclose(pipe);
 }
 
 template<std::size_t pos>
