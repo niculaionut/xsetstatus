@@ -79,7 +79,7 @@ static void insert_response(auto&, const int, const auto);
 
 /* function declarations */
 static void set_root();
-static void xss_exit(const int);
+static void xss_exit(const int, const char*);
 static void toggle_lang(field_buffer_t&);
 static void toggle_cpu_gov(field_buffer_t&);
 static void setup();
@@ -160,25 +160,15 @@ static const response_table_t rt_responses = []()
 /* member function definitions */
 void ShellResponse::resolve() const
 {
-        if(pos < 0 || pos >= N_FIELDS)
-        {
-                xss_exit(EXIT_FAILURE);
-        }
-
         const auto rc = exec_cmd<true>(command, rootstrings[pos]);
         if(rc != EXIT_SUCCESS)
         {
-                xss_exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE, "pclose() did not return EXIT_SUCCESS");
         }
 }
 
 void BuiltinResponse::resolve() const
 {
-        if(pos < 0 || pos >= N_FIELDS)
-        {
-                xss_exit(EXIT_FAILURE);
-        }
-
         fptr(rootstrings[pos]);
 }
 
@@ -189,7 +179,7 @@ int exec_cmd(const char* cmd, field_buffer_t& output_buf)
         FILE* pipe = popen(cmd, "r");
         if(!pipe)
         {
-                xss_exit(EXIT_FAILURE);
+                xss_exit(EXIT_FAILURE, "popen() failed");
         }
 
         if(fgets(output_buf.data(), std::size(output_buf) + 1, pipe) != nullptr)
@@ -238,11 +228,12 @@ void set_root()
 #endif
 }
 
-void xss_exit(const int rc)
+void xss_exit(const int rc, const char* why)
 {
 #ifndef NO_X11
         XCloseDisplay(dpy);
 #endif
+        fmt::print(stderr, "{}\n", why);
         std::exit(rc);
 }
 
