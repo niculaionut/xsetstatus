@@ -100,7 +100,7 @@ public:
 
 public:
         const char* command;
-        const int pos;
+        std::size_t pos;
 };
 
 struct BuiltinResponse
@@ -110,7 +110,7 @@ public:
 
 public:
         void (*fptr)(field_buffer_t&);
-        const int pos;
+        std::size_t pos;
 };
 
 /* signal configs  */
@@ -249,7 +249,7 @@ void toggle_lang(field_buffer_t& output_buf)
                 "setxkbmap ro -variant std"
         };
 
-        static unsigned idx = 1;
+        static std::size_t idx = 1;
 
         idx = !idx;
         std::system(commands[idx]);
@@ -268,7 +268,7 @@ void toggle_cpu_gov(field_buffer_t& output_buf)
                 "xss-set-perf"
         };
 
-        static unsigned idx = 1;
+        static std::size_t idx = 1;
 
         idx = !idx;
         std::system(commands[idx]);
