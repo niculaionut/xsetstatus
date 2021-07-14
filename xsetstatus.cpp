@@ -307,7 +307,6 @@ void handle_sig(const int sig)
                 return;
         }
 
-
         auto* fptr = std::get<2>(sig_resp);
         fptr();
 }
