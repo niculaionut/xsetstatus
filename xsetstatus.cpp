@@ -160,7 +160,7 @@ static const response_table_t rt_responses = []()
 /* member function definitions */
 void ShellResponse::resolve() const
 {
-        const auto rc = exec_cmd<true>(command, rootstrings[pos]);
+        const int rc = exec_cmd<true>(command, rootstrings[pos]);
         if(rc != EXIT_SUCCESS)
         {
                 xss_exit(EXIT_FAILURE, "pclose() did not return EXIT_SUCCESS");
@@ -177,7 +177,7 @@ template<bool omit_newline>
 int exec_cmd(const char* cmd, field_buffer_t& output_buf)
 {
         FILE* pipe = popen(cmd, "r");
-        if(!pipe)
+        if(pipe == nullptr)
         {
                 xss_exit(EXIT_FAILURE, "popen() failed");
         }
@@ -293,19 +293,23 @@ void handle_sig(const int sig)
 {
         const auto& sig_resp = rt_responses[sig];
 
-        if(auto* shellptr = std::get<0>(sig_resp))
+        auto* shellptr = std::get<0>(sig_resp);
+        if(shellptr != nullptr)
         {
                 shellptr->resolve();
+                return;
         }
-        else if(auto* builtinptr = std::get<1>(sig_resp))
+
+        auto* builtinptr = std::get<1>(sig_resp);
+        if(builtinptr != nullptr)
         {
                 builtinptr->resolve();
+                return;
         }
-        else
-        {
-                auto* fptr = std::get<2>(sig_resp);
-                fptr();
-        }
+
+
+        auto* fptr = std::get<2>(sig_resp);
+        fptr();
 }
 
 bool already_running()
