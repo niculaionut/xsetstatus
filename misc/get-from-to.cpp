@@ -2,6 +2,7 @@
  * the first cli argument. Stop at the first occurance of the second cli argument. */
 
 #include <iostream>
+#include <fmt/core.h>
 #include <string>
 #include <string_view>
 
@@ -9,7 +10,7 @@ int main(int argc, char* argv[])
 {
         if(argc < 3 || argc > 4)
         {
-                std::cerr << "get-from-to <from-char> <to-char> [--amixer]\n";
+                fmt::print(stderr, "get-from-to <from> <to> [--amixer]\n");
                 return 1;
         }
 
@@ -17,7 +18,7 @@ int main(int argc, char* argv[])
         std::string_view tchar = argv[2];
         if(fchar.size() != 1 || tchar.size() != 1)
         {
-                std::cerr << "<from> and <to> must be single characters\n";
+                fmt::print(stderr, "<from> and <to> must be single characters\n");
                 return 1;
         }
 
@@ -32,12 +33,12 @@ int main(int argc, char* argv[])
 
         if(i1 == std::string::npos)
         {
-                std::cerr << "first argument '" << c1 << "' not found in string\n";
+                fmt::print(stderr, "<from>: '{}' not found in string\n", c1);
                 return 1;
         }
         if(i2 == std::string::npos)
         {
-                std::cerr << "second argument '" << c2 << "' not found in string\n";
+                fmt::print(stderr, "<to>: '{}' not found in string\n", c2);
                 return 1;
         }
 
@@ -47,22 +48,23 @@ int main(int argc, char* argv[])
         {
                 if(result.empty() || result.back() != '%')
                 {
-                        std::cerr << "Input not in expected 'amixer sget Master | tail -n1' "
-                                     "format\n";
+                        fmt::print(stderr, "String is not in expected 'amixer sget Master | "
+                                           "tail -n1' format\n");
                         return 1;
                 }
+
                 result.remove_suffix(1);
-                std::cout << result;
+                fmt::print("{}", result);
 
                 if(line.find("[on]") == std::string::npos)
                 {
-                        std::cout << '*';
+                        fmt::print("*");
                 }
 
                 return 0;
         }
 
-        std::cout << result;
+        fmt::print("{}", result);
 
         return 0;
 }
