@@ -104,7 +104,7 @@ public:
 
 public:
         const char* command;
-        std::size_t pos;
+        field_buffer_t& rbuf;
 };
 
 /* respond to signal by calling a function that modifies the field buffer */
@@ -115,25 +115,46 @@ public:
 
 public:
         void (*fptr)(field_buffer_t&);
-        std::size_t pos;
+        field_buffer_t& rbuf;
 };
 
 /* signal configs  */
 static constexpr ShellResponse sr_table[] = {
-       /* shell command/script   root array index */
-        { "xss-get-time",        R_TIME },
-        { "xss-get-load",        R_LOAD },
-        { "xss-get-temp",        R_TEMP },
-        { "xss-get-vol",         R_VOL  },
-        { "xss-get-mic",         R_MIC  },
-        { "xss-get-mem",         R_MEM  },
-        { "xss-get-date",        R_DATE },
+        {   /* time */
+            R"(date +%H:%M:%S)", /* shell command */
+            rootstrings[R_TIME]  /* reference to root buffer */
+        },
+        {   /* sys load*/
+            R"(uptime | grep -wo "average: .*," | cut --delimiter=' ' -f2 | head -c4)",
+            rootstrings[R_LOAD]
+        },
+        {   /* cpu temp*/
+            R"(sensors | grep -F "Core 0" | awk '{print $3}' | cut -c2-5)",
+            rootstrings[R_TEMP]
+        },
+        {   /* volume */
+            R"(amixer sget Master | tail -n1 | get-from-to '[' ']' '--amixer')",
+            rootstrings[R_VOL]
+        },
+        {
+            /* mic status */
+            R"(amixer sget Capture | grep -Fq '[on]' && echo '1' || echo '0')",
+            rootstrings[R_MIC]
+        },
+        {   /* memory usage */
+            R"("xss-get-mem")",
+            rootstrings[R_MEM]
+        },
+        {   /* date */
+            R"(date "+%d.%m.%Y")",
+            rootstrings[R_DATE]
+        }
 };
 
 static constexpr BuiltinResponse br_table[] = {
-       /* pointer to function (handler)   root array index */
-        { toggle_lang,                    R_LANG },
-        { toggle_cpu_gov,                 R_GOV }
+       /* pointer to function (handler)   reference to root buffer */
+        { toggle_lang,                    rootstrings[R_LANG] },
+        { toggle_cpu_gov,                 rootstrings[R_GOV] }
 };
 
 static const response_table_t rt_responses = []()
@@ -157,7 +178,7 @@ static const response_table_t rt_responses = []()
 /* member function definitions */
 void ShellResponse::resolve() const
 {
-        const int rc = exec_cmd<true>(command, rootstrings[pos]);
+        const int rc = exec_cmd<true>(command, rbuf);
         if(rc != EXIT_SUCCESS)
         {
                 xss_exit(EXIT_FAILURE, "pclose() did not return EXIT_SUCCESS");
@@ -166,7 +187,7 @@ void ShellResponse::resolve() const
 
 void BuiltinResponse::resolve() const
 {
-        fptr(rootstrings[pos]);
+        fptr(rbuf);
 }
 
 /* function / template function definitions */
