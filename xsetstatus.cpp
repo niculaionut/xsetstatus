@@ -121,8 +121,8 @@ public:
 /* signal configs  */
 static constexpr ShellResponse sr_table[] = {
         {   /* time */
-            R"(date +%H:%M:%S)", /* shell command */
-            rootstrings[R_TIME]  /* reference to root buffer */
+            R"(date +%H:%M:%S)",        /* shell command */
+            rootstrings[R_TIME]         /* reference to root buffer */
         },
         {   /* sys load*/
             R"(uptime | grep -wo "average: .*," | cut --delimiter=' ' -f2 | head -c4)",
