@@ -32,3 +32,7 @@ while true; do
         sleep 10
 done
 ```
+
+#### Output example (with dwm):
+
+![img/1.gif]
