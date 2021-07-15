@@ -84,9 +84,6 @@ static Window root;
 #endif
 
 /* template function declarations */
-template<bool>
-static int exec_cmd(const char*, field_buffer_t&);
-
 template<std::size_t>
 static void insert_response(auto&, const int, const auto);
 
@@ -94,10 +91,12 @@ template<auto*, std::size_t...>
 static void run_meta_response();
 
 /* function declarations */
+static int  exec_cmd(const char*, field_buffer_t&);
 static void set_root();
 static void xss_exit(const int, const char*);
 static void toggle_lang(field_buffer_t&);
 static void toggle_cpu_gov(field_buffer_t&);
+static void toggle_mic(field_buffer_t&);
 static void setup();
 static void handle_sig(const int);
 static bool already_running();
@@ -149,11 +148,6 @@ static constexpr ShellResponse sr_table[] = {
             R"(amixer sget Master | tail -n1 | get-from-to '[' ']' '--amixer')",
             rootstrings[R_VOL]
         },
-        {
-            /* mic status */
-            R"(amixer sget Capture | grep -Fq '[on]' && echo '1' || echo '0')",
-            rootstrings[R_MIC]
-        },
         {   /* memory usage */
             R"("xss-get-mem")",
             rootstrings[R_MEM]
@@ -167,7 +161,8 @@ static constexpr ShellResponse sr_table[] = {
 static constexpr BuiltinResponse br_table[] = {
        /* pointer to function (handler)   reference to root buffer */
         { toggle_lang,                    rootstrings[R_LANG] },
-        { toggle_cpu_gov,                 rootstrings[R_GOV] }
+        { toggle_cpu_gov,                 rootstrings[R_GOV]  },
+        { toggle_mic,                     rootstrings[R_MIC]  }
 };
 
 static const response_table_t rt_responses = []()
@@ -176,14 +171,14 @@ static const response_table_t rt_responses = []()
 
      /* shell responses               signal value    pointer to ShellResponse instance */
         insert_response<0>(responses, CSIGRTMAX - 1,  &sr_table[3]);
-        insert_response<0>(responses, CSIGRTMAX - 2,  &sr_table[4]);
 
      /* builtin responses             signal value    pointer to BuiltinResponse instance */
         insert_response<1>(responses, CSIGRTMAX - 3,  &br_table[0]);
         insert_response<1>(responses, CSIGRTMAX - 5,  &br_table[1]);
+        insert_response<1>(responses, CSIGRTMAX - 2,  &br_table[2]);
 
      /* meta responses                signal value    pointer to void (*)() function */
-        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2, 5>);
+        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2, 4>);
 
         return responses;
 }();
@@ -191,7 +186,7 @@ static const response_table_t rt_responses = []()
 /* member function definitions */
 void ShellResponse::resolve() const
 {
-        const int rc = exec_cmd<true>(command, rbuf);
+        const int rc = exec_cmd(command, rbuf);
         if(rc != EXIT_SUCCESS)
         {
                 xss_exit(EXIT_FAILURE, "pclose() did not return EXIT_SUCCESS");
@@ -204,7 +199,19 @@ void BuiltinResponse::resolve() const
 }
 
 /* function / template function definitions */
-template<bool omit_newline>
+template<std::size_t pos>
+void insert_response(auto& arr, const int sig, const auto val)
+{
+        std::get<pos>(arr[sig - CSIGRTMIN]) = val;
+        signal(sig, u_sig_handler);
+}
+
+template<auto* resp_table, std::size_t... indexes>
+void run_meta_response()
+{
+        (resp_table[indexes].resolve(), ...);
+}
+
 int exec_cmd(const char* cmd, field_buffer_t& output_buf)
 {
         FILE* pipe = popen(cmd, "r");
@@ -217,29 +224,14 @@ int exec_cmd(const char* cmd, field_buffer_t& output_buf)
         {
                 output_buf.set_size();
 
-                if constexpr(omit_newline)
+                /* check for trailing newline and delete it */
+                if(!output_buf.empty() && output_buf.back() == '\n')
                 {
-                        if(!output_buf.empty() && output_buf.back() == '\n')
-                        {
-                                output_buf.pop_back();
-                        }
+                        output_buf.pop_back();
                 }
         }
 
         return pclose(pipe);
-}
-
-template<std::size_t pos>
-void insert_response(auto& arr, const int sig, const auto val)
-{
-        std::get<pos>(arr[sig - CSIGRTMIN]) = val;
-        signal(sig, u_sig_handler);
-}
-
-template<auto* resp_table, std::size_t... indexes>
-void run_meta_response()
-{
-        (resp_table[indexes].resolve(), ...);
 }
 
 void set_root()
@@ -312,6 +304,22 @@ void toggle_cpu_gov(field_buffer_t& output_buf)
         output_buf = freq_table[idx];
 }
 
+void toggle_mic(field_buffer_t& output_buf)
+{
+        static constexpr field_buffer_t mic_status_table[2] = {
+                {"0"},
+                {"1"}
+        };
+
+        static constexpr const char* command = "pactl set-source-mute @DEFAULT_SOURCE@ toggle";
+
+        static std::size_t idx = 1;
+
+        idx = !idx;
+        std::system(command);
+        output_buf = mic_status_table[idx];
+}
+
 void setup()
 {
 #ifndef NO_X11
@@ -354,7 +362,7 @@ bool already_running()
         field_buffer_t output;
         int rc;
 
-        rc = exec_cmd<true>("pgrep -x xsetstatus | wc -l", output);
+        rc = exec_cmd("pgrep -x xsetstatus | wc -l", output);
         if(rc != EXIT_SUCCESS)
         {
                 std::exit(EXIT_FAILURE);
@@ -369,7 +377,7 @@ bool already_running()
                 return true;
         }
 
-        rc = exec_cmd<true>("pgrep -x xsetstatus", output);
+        rc = exec_cmd("pgrep -x xsetstatus", output);
         if(rc != EXIT_SUCCESS)
         {
                 std::exit(EXIT_FAILURE);
