@@ -3,35 +3,13 @@
 #include <fmt/format.h>
 #include <array>
 #include <vector>
+#include <numeric>
 #include <utility>
 #include <unistd.h>
 #include <signal.h>
 #ifndef NO_X11
 #include <X11/Xlib.h>
 #endif
-
-/* global constexpr variables */
-static constexpr int N_FIELDS = 9;
-static constexpr int FIELD_MAX_LENGTH = 22;
-static constexpr int ROOT_BUFSIZE = N_FIELDS * FIELD_MAX_LENGTH;
-static constexpr auto fmt_format_str = []()
-{
-        constexpr std::string_view markers[] = {"[{}", " |{}", " |{}]"};
-
-        FixedStr<markers[0].size() +
-                 (N_FIELDS - 2) *
-                 markers[1].size() +
-                 markers[2].size()> res;
-
-        res += markers[0];
-        for(int i = 0; i < N_FIELDS - 2; ++i)
-        {
-                res += markers[1];
-        }
-        res += markers[2];
-
-        return res;
-}();
 
 /* enums */
 enum RootFieldIdx
@@ -44,8 +22,43 @@ enum RootFieldIdx
         R_MEM,
         R_GOV,
         R_LANG,
-        R_DATE
+        R_DATE,
+        R_SIZE
 };
+
+/* global constexpr variables */
+static constexpr int N_FIELDS = R_SIZE;
+static constexpr int FIELD_MAX_LENGTH = 22;
+static constexpr int ROOT_BUFSIZE = N_FIELDS * FIELD_MAX_LENGTH;
+static constexpr auto fmt_format_str = []()
+{
+        using str_t = FixedStr<ROOT_BUFSIZE>;
+
+        constexpr str_t fmt_before_shrink = []()
+        {
+                str_t default_first  = "[{}";
+                str_t default_mid    = " |{}";
+                str_t default_last   = " |{}]";
+
+                str_t labels[N_FIELDS] = {};
+
+                std::fill_n(labels, N_FIELDS, default_mid);
+                labels[0] = default_first;
+                labels[N_FIELDS - 1] = default_last;
+
+                /* custom field labels */
+
+                /* examples
+                labels[R_LOAD] = str_t{" |sysload:{}"};
+                labels[R_MEM]  = str_t{" |memory:{}"};
+                labels[R_VOL]  = str_t{" |volume:{}"};
+                */
+
+                return std::accumulate(labels, labels + N_FIELDS, str_t{});
+        }();
+
+        return FixedStr<fmt_before_shrink.length()>(fmt_before_shrink);
+}();
 
 /* struct declarations */
 struct ShellResponse;
