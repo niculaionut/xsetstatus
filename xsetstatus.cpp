@@ -248,7 +248,7 @@ void set_root()
         XStoreName(dpy, root, buf.data());
         XFlush(dpy);
 #else
-        std::puts(buf.data());
+        fmt::print("{}\n", buf.data());
 #endif
 }
 
