@@ -25,7 +25,7 @@ At start-up, run ```xsetstatus``` in the background. Run a script or a shell com
 pactl set-sink-volume @DEFAULT_SINK@ +8% && pkill --signal 63 -x 'xsetstatus'
 ```
 
-* Send signal 60 to xsetstatus every 10 seconds. The handler sets the last signal to 60. After the workload for the previous signal is finished, the group update function is called (which updates the fields that don't depend on user keyboard input - e.g. time, system load, CPU temperature).
+* Send signal 60 to xsetstatus every 10 seconds. The handler sets the last signal to 60. After the workload for the previous signal is finished, the meta-response function is called (which updates the fields that don't depend on user keyboard input - e.g. time, system load, CPU temperature).
 ```bash
 while true; do
         pkill --signal 60 -x 'xsetstatus'

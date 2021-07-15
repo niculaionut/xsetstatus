@@ -34,7 +34,7 @@ static constexpr auto fmt_format_str = []()
 }();
 
 /* enums */
-enum ResponseRootIdx
+enum RootFieldIdx
 {
         R_TIME = 0,
         R_LOAD,
@@ -77,6 +77,9 @@ static int exec_cmd(const char*, field_buffer_t&);
 template<std::size_t>
 static void insert_response(auto&, const int, const auto);
 
+template<auto*, std::size_t...>
+static void run_meta_response();
+
 /* function declarations */
 static void set_root();
 static void xss_exit(const int, const char*);
@@ -89,10 +92,11 @@ static void u_sig_handler(const int);
 static void terminator(const int);
 static void init_terminator();
 static void init_statusbar();
-static void run_interval_responses();
 static void solve_signals();
 
 /* struct definitions */
+
+/* respond to signal by writing shell command output to the field buffer */
 struct ShellResponse
 {
 public:
@@ -103,6 +107,7 @@ public:
         std::size_t pos;
 };
 
+/* respond to signal by calling a function that modifies the field buffer */
 struct BuiltinResponse
 {
 public:
@@ -131,14 +136,6 @@ static constexpr BuiltinResponse br_table[] = {
         { toggle_cpu_gov,                 R_GOV }
 };
 
-static constexpr const ShellResponse* interval_responses[] = {
-     /* pointer to ShellResponse instance */
-        &sr_table[0],
-        &sr_table[1],
-        &sr_table[2],
-        &sr_table[5],
-};
-
 static const response_table_t rt_responses = []()
 {
         response_table_t responses(SIGRANGE, {nullptr, nullptr, nullptr});
@@ -151,8 +148,8 @@ static const response_table_t rt_responses = []()
         insert_response<1>(responses, CSIGRTMAX - 3,  &br_table[0]);
         insert_response<1>(responses, CSIGRTMAX - 5,  &br_table[1]);
 
-     /* group responses               signal value    pointer to function */
-        insert_response<2>(responses, CSIGRTMAX - 4,  &run_interval_responses);
+     /* meta responses                signal value    pointer to void (*)() function */
+        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2, 5>);
 
         return responses;
 }();
@@ -205,6 +202,12 @@ void insert_response(auto& arr, const int sig, const auto val)
         signal(sig, u_sig_handler);
 }
 
+template<auto* resp_table, std::size_t... indexes>
+void run_meta_response()
+{
+        (resp_table[indexes].resolve(), ...);
+}
+
 void set_root()
 {
         root_str_buffer_t buf;
@@ -224,7 +227,7 @@ void set_root()
         XStoreName(dpy, root, buf.data());
         XFlush(dpy);
 #else
-        fmt::print("{}\n", buf.data());
+        std::puts(buf.data());
 #endif
 }
 
@@ -381,14 +384,6 @@ void init_statusbar()
         for(const auto& r : br_table)
         {
                 r.resolve();
-        }
-}
-
-void run_interval_responses()
-{
-        for(const auto& r : interval_responses)
-        {
-                r->resolve();
         }
 }
 
