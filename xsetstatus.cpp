@@ -149,7 +149,7 @@ static constexpr ShellResponse sr_table[] = {
             rootstrings[R_VOL]
         },
         {   /* memory usage */
-            R"("xss-get-mem")",
+            R"(xss-get-mem)",
             rootstrings[R_MEM]
         },
         {   /* date */
