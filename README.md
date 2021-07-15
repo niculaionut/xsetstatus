@@ -33,6 +33,6 @@ while true; do
 done
 ```
 
-#### Output example (with dwm):
+#### Output sample (with dwm - modifying volume, microphone, keyboard language, etc.):
 
-![img/1.gif]
+![sample](img/1.gif)
