@@ -13,7 +13,7 @@ Needs a window manager that reads the text from the X root window name and print
 Clone the repo, go in its root directory and run:
 
 ```bash
-make xsetstatus
+$ make xsetstatus
 ```
 
 #### Usage example:
@@ -22,15 +22,21 @@ At start-up, run ```xsetstatus``` in the background. Run a script or a shell com
 
 * Increase the volume by 8% and send signal 63 to xsetstatus. The handler sets the last signal to 63. After the workload for the previous signal is finished, the function that updates the volume field is called.
 ```bash
-pactl set-sink-volume @DEFAULT_SINK@ +8% && pkill --signal 63 -x 'xsetstatus'
+$ pactl set-sink-volume @DEFAULT_SINK@ +8% && pkill --signal 63 -x 'xsetstatus'
 ```
 
 * Send signal 60 to xsetstatus every 10 seconds. The handler sets the last signal to 60. After the workload for the previous signal is finished, the meta-response function is called (which updates the fields that don't depend on user keyboard input - e.g. time, system load, CPU temperature).
 ```bash
+#!/bin/sh
 while true; do
         pkill --signal 60 -x 'xsetstatus'
         sleep 10
 done
+```
+
+For a simple config with only 3 fields - average load, time and date - and 1 real-time signal handler that updates them, apply the diff file:
+```bash
+$ git apply default_config.diff
 ```
 
 #### Output sample (with dwm - modifying volume, microphone, keyboard language, etc.):
