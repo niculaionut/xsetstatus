@@ -10,9 +10,11 @@ Needs a window manager that reads the text from the X root window name and print
 
 #### Building:
 
-Clone the repo, go in its root directory and run:
+Clone the repo, go in its root directory and run the makefile:
 
 ```bash
+$ git clone https://github.com/niculaionut/xsetstatus.git
+$ cd xsetstatus
 $ make xsetstatus
 ```
 
