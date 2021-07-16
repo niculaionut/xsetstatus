@@ -48,11 +48,10 @@ static constexpr auto fmt_format_str = []()
 
                 /* custom field labels */
 
-                /* examples
-                labels[R_LOAD] = str_t{" |sysload:{}"};
-                labels[R_MEM]  = str_t{" |memory:{}"};
-                labels[R_VOL]  = str_t{" |volume:{}"};
-                */
+                /* examples:
+                 * labels[R_LOAD] = str_t{" |sysload:{}"};
+                 * labels[R_MEM]  = str_t{" |memory:{}"};
+                 * labels[R_VOL]  = str_t{" |volume:{}"}; */
 
                 return std::accumulate(labels, labels + N_FIELDS, str_t{});
         }();
