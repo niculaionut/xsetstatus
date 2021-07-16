@@ -88,7 +88,7 @@ static Window root;
 template<std::size_t>
 static void insert_response(auto&, const int, const auto);
 
-template<auto*, std::size_t...>
+template<const auto&, std::size_t...>
 static void run_meta_response();
 
 /* function declarations */
@@ -132,7 +132,7 @@ public:
 };
 
 /* signal configs  */
-static constexpr ShellResponse sr_table[] = {
+static constexpr std::array sr_table = std::to_array<ShellResponse>({
         {   /* time */
             R"(date +%H:%M:%S)",        /* shell command */
             rootstrings[R_TIME]         /* reference to root buffer */
@@ -157,14 +157,14 @@ static constexpr ShellResponse sr_table[] = {
             R"(date "+%d.%m.%Y")",
             rootstrings[R_DATE]
         }
-};
+});
 
-static constexpr BuiltinResponse br_table[] = {
-       /* pointer to function (handler)   reference to root buffer */
-        { toggle_lang,                    rootstrings[R_LANG] },
-        { toggle_cpu_gov,                 rootstrings[R_GOV]  },
-        { toggle_mic,                     rootstrings[R_MIC]  }
-};
+static constexpr std::array br_table = std::to_array<BuiltinResponse>({
+       /* pointer to function    reference to root buffer */
+        { toggle_lang,           rootstrings[R_LANG] },
+        { toggle_cpu_gov,        rootstrings[R_GOV]  },
+        { toggle_mic,            rootstrings[R_MIC]  }
+});
 
 static const response_table_t rt_responses = []()
 {
@@ -207,7 +207,7 @@ void insert_response(auto& arr, const int sig, const auto ptr)
         signal(sig, u_sig_handler);
 }
 
-template<auto* resp_table, std::size_t... indexes>
+template<const auto& resp_table, std::size_t... indexes>
 void run_meta_response()
 {
         (resp_table[indexes].resolve(), ...);
