@@ -58,7 +58,9 @@ static constexpr auto fmt_format_str = []()
         }();
 
         return FixedStr<fmt_before_shrink.length()>(fmt_before_shrink);
-}();
+}();        /* Format string generated at compile-time.
+             * Same as manually writing:
+             * FixedStr<36> fmt_format_str = "[{} |{} |{} |{} |{} |{} |{} |{} |{}]" */
 
 /* struct declarations */
 struct ShellResponse;
