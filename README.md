@@ -36,10 +36,13 @@ while true; do
 done
 ```
 
+#### Getting started:
+
 For a simple config with only 3 fields - average load, time and date - and 1 real-time signal handler that updates them, apply the diff file:
 ```bash
 $ git apply default_config.diff
 ```
+The shell commands that update the fields in this minimal config only require the coreutils.
 
 #### Output sample (with dwm - modifying volume, microphone, keyboard language, etc.):
 
