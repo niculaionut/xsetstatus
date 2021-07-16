@@ -201,9 +201,9 @@ void BuiltinResponse::resolve() const
 
 /* function / template function definitions */
 template<std::size_t pos>
-void insert_response(auto& arr, const int sig, const auto val)
+void insert_response(auto& arr, const int sig, const auto ptr)
 {
-        std::get<pos>(arr[sig - CSIGRTMIN]) = val;
+        std::get<pos>(arr[sig - CSIGRTMIN]) = ptr;
         signal(sig, u_sig_handler);
 }
 
