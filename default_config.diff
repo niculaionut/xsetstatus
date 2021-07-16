@@ -1,0 +1,89 @@
+diff --git a/xsetstatus.cpp b/xsetstatus.cpp
+index aab64d9..0b11019 100644
+--- a/xsetstatus.cpp
++++ b/xsetstatus.cpp
+@@ -14,14 +14,8 @@
+ /* enums */
+ enum RootFieldIdx
+ {
+-        R_TIME = 0,
+-        R_LOAD,
+-        R_TEMP,
+-        R_VOL,
+-        R_MIC,
+-        R_MEM,
+-        R_GOV,
+-        R_LANG,
++        R_LOAD = 0,
++        R_TIME,
+         R_DATE,
+         R_SIZE
+ };
+@@ -48,6 +42,8 @@ static constexpr auto fmt_format_str = []()
+ 
+                 /* custom field labels */
+ 
++                labels[R_LOAD] = str_t{"[LOAD_AVG:{}"};
++
+                 /* examples:
+                  * labels[R_LOAD] = str_t{" |sysload:{}"};
+                  * labels[R_MEM]  = str_t{" |memory:{}"};
+@@ -133,25 +129,13 @@ public:
+ 
+ /* signal configs  */
+ static constexpr std::array sr_table = std::to_array<ShellResponse>({
+-        {   /* time */
+-            R"(date +%H:%M:%S)",        /* shell command */
+-            rootstrings[R_TIME]         /* reference to root buffer */
+-        },
+         {   /* sys load*/
+             R"(uptime | grep -wo "average: .*," | cut --delimiter=' ' -f2 | head -c4)",
+             rootstrings[R_LOAD]
+         },
+-        {   /* cpu temp*/
+-            R"(sensors | grep -F "Core 0" | awk '{print $3}' | cut -c2-5)",
+-            rootstrings[R_TEMP]
+-        },
+-        {   /* volume */
+-            R"(amixer sget Master | tail -n1 | get-from-to '[' ']' '--amixer')",
+-            rootstrings[R_VOL]
+-        },
+-        {   /* memory usage */
+-            R"(xss-get-mem)",
+-            rootstrings[R_MEM]
++        {   /* time */
++            R"(date +%H:%M:%S)",        /* shell command */
++            rootstrings[R_TIME]         /* reference to root buffer */
+         },
+         {   /* date */
+             R"(date "+%d.%m.%Y")",
+@@ -159,27 +143,14 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
+         }
+ });
+ 
+-static constexpr std::array br_table = std::to_array<BuiltinResponse>({
+-       /* pointer to function    reference to root buffer */
+-        { toggle_lang,           rootstrings[R_LANG] },
+-        { toggle_cpu_gov,        rootstrings[R_GOV]  },
+-        { toggle_mic,            rootstrings[R_MIC]  }
+-});
++static constexpr std::array br_table = std::array<BuiltinResponse, 0>{};
+ 
+ static const response_table_t rt_responses = []()
+ {
+         response_table_t responses(SIGRANGE, {nullptr, nullptr, nullptr});
+ 
+-     /* shell responses               signal value    pointer to ShellResponse instance */
+-        insert_response<0>(responses, CSIGRTMAX - 1,  &sr_table[3]);
+-
+-     /* builtin responses             signal value    pointer to BuiltinResponse instance */
+-        insert_response<1>(responses, CSIGRTMAX - 3,  &br_table[0]);
+-        insert_response<1>(responses, CSIGRTMAX - 5,  &br_table[1]);
+-        insert_response<1>(responses, CSIGRTMAX - 2,  &br_table[2]);
+-
+      /* meta responses                signal value    pointer to void (*)() function */
+-        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2, 4>);
++        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2>);
+ 
+         return responses;
+ }();
