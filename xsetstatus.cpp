@@ -361,14 +361,8 @@ bool already_running()
 {
 #ifndef IGNORE_ALREADY_RUNNING
         field_buffer_t output;
-        int rc;
 
-        rc = exec_cmd("pgrep -x xsetstatus | wc -l", output);
-        if(rc != EXIT_SUCCESS)
-        {
-                std::exit(EXIT_FAILURE);
-        }
-
+        exec_cmd("pgrep -x xsetstatus | wc -l", output);
         if(output == "0")
         {
                 return false;
@@ -378,12 +372,7 @@ bool already_running()
                 return true;
         }
 
-        rc = exec_cmd("pgrep -x xsetstatus", output);
-        if(rc != EXIT_SUCCESS)
-        {
-                std::exit(EXIT_FAILURE);
-        }
-
+        exec_cmd("pgrep -x xsetstatus", output);
         return std::atoi(output.data()) != getpid();
 #else
         return false;
