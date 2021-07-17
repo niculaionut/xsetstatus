@@ -27,7 +27,7 @@ $ git apply default_config.diff
 The shell commands that update the fields in this minimal config only require the coreutils.
 
 Short description of the configuration components:
-+ `enum RootIdxField` - Defines a unique index for each status field represented by an element in the `rootstrings` array;
++ `enum RootFieldIdx` - Defines a unique index for each status field represented by an element in the `rootstrings` array;
 + `fmt_format_str` - The string used by `fmt::format_to_n` to format the status bar output;
 + `sr_table` and `br_table` - Constexpr arrays containing the defined shell responses and builtin responses, respectively;
 + `rt_responses` - Lookup table of size `SIGRTMAX - SIGRTMIN + 1`. The information regarding the handling of a real-time signal with value `i` is stored in the element `rt_responses[i - SIGRTMIN]`. Each element in `rt_responses` is a tuple of 3 pointers. Upon receiving a valid signal, only 1 of those 3 pointers will be non-null (either the pointer to a `ShellResponse` instance, the pointer to a `BuiltinResponse` instance, or the pointer to a void function taking no arguments).
