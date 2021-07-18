@@ -172,9 +172,15 @@ public:
                 return elements[csize - 1];
         }
 
-        constexpr void set_size()
+        constexpr void set_length()
         {
                 csize = std::char_traits<char>::length(begin());
+        }
+
+        constexpr void clear()
+        {
+                csize = 0;
+                elements[0] = '\0';
         }
 
 private:

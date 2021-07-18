@@ -221,9 +221,10 @@ int exec_cmd(const char* cmd, field_buffer_t& output_buf)
                 xss_exit(EXIT_FAILURE, "popen() failed");
         }
 
+        output_buf.clear();
         if(fgets(output_buf.data(), std::size(output_buf) + 1, pipe) != nullptr)
         {
-                output_buf.set_size();
+                output_buf.set_length();
 
                 /* check for trailing newline and delete it */
                 if(!output_buf.empty() && output_buf.back() == '\n')
