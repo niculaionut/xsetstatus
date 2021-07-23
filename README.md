@@ -10,21 +10,17 @@ Needs a window manager that reads the text from the X root window name and print
 
 #### Building:
 
-Clone the repo, go in its root directory and run the makefile:
+Clone the repo, go in its root directory, apply the diff file and run the makefile:
 
 ```bash
 $ git clone https://github.com/niculaionut/xsetstatus.git
 $ cd xsetstatus
+$ patch -i default_config.diff
 $ make xsetstatus
 ```
 
 #### Getting started:
-
-For a simple config with only 3 fields - average load, time and date - and 1 real-time signal handler that updates them, apply the diff file:
-```bash
-$ patch -i default_config.diff
-```
-The shell commands that update the fields in this minimal config only require the coreutils.
+The default config has 3 fields - average load, time and date. The shell commands that update those fields only require the coreutils.
 
 Short description of the configuration components:
 + `enum RootFieldIdx` - Defines a unique index for each status field represented by an element in the `rootstrings` array;
