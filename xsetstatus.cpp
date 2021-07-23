@@ -12,6 +12,9 @@
 #endif
 
 /* enums */
+
+/* Defines the order of the status bar fields;
+ * First value is the index of the leftmost field. */
 enum RootFieldIdx
 {
         R_TIME = 0,
