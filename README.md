@@ -51,4 +51,4 @@ done
 
 #### Output sample (with dwm - modifying volume, microphone, keyboard language, etc.):
 
-![sample](img/1.gif)
+![sample](https://raw.githubusercontent.com/niculaionut/xsetstatus/main/img/1.gif)
