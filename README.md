@@ -23,7 +23,7 @@ $ make xsetstatus
 
 For testing purposes, if you want the status to be written to standard output, run the makefile with the target `nox11`:
 ```bash
-make nox11
+$ make nox11
 ```
 
 The default config has 3 fields - average load, time and date. The shell commands that update those fields only require the coreutils.
