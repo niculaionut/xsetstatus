@@ -11,6 +11,6 @@ xsetstatus:
 	${CPPC} ${WFLAGS} ${CPPFLAGS} ${SRC} -o xsetstatus ${LIBS}
 
 nox11:
-	${CPPC} ${WFLAGS} ${DEBUGFLAGS} ${SRC} -o xsetstatus ${LIBS}
+	${CPPC} ${WFLAGS} ${NOX11FLAGS} ${SRC} -o xsetstatus ${LIBS}
 
 .PHONY: clean xsetstatus nox11
