@@ -29,10 +29,14 @@ $ make nox11
 The default config has 3 fields - average load, time and date. The shell commands that update those fields only require the coreutils.
 
 Short description of the configuration components:
++ `class Response` - Response interface;
++ `class ShellResponse` - Responds to a signal by writing a shell command's output to the field buffer;
++ `class BuiltinResponse` - Responds to signal by calling a function that takes a reference to the field buffer and modifies it;
++ `class MetaResponse` - Responds to a signal by calling other responses through a `void (*)()` function pointer;
 + `enum RootFieldIdx` - Defines a unique index for each status field represented by an element in the `rootstrings` array;
 + `fmt_format_str` - The string used by `fmt::format_to_n` to format the status bar output;
-+ `sr_table` and `br_table` - Constexpr arrays containing the defined shell responses and builtin responses, respectively;
-+ `rt_responses` - Lookup table of size `SIGRTMAX - SIGRTMIN + 1`. The information regarding the handling of a real-time signal with value `i` is stored in the element `rt_responses[i - SIGRTMIN]`. Each element in `rt_responses` is a tuple of 3 pointers. Upon receiving a valid signal, only 1 of those 3 pointers will be non-null (either the pointer to a `ShellResponse` instance, the pointer to a `BuiltinResponse` instance, or the pointer to a void function taking no arguments).
++ `sr_table`, `br_table`, `mr_table` - Constexpr arrays containing the defined shell responses, builtin responses and meta responses, respectively;
++ `rt_responses` - Lookup table of size `SIGRTMAX - SIGRTMIN + 1`. The information regarding the handling of a real-time signal with value `i` is stored in the element `rt_responses[i - SIGRTMIN]`. Each element in `rt_responses` is a pointer to the `Response` abstract base class. Upon receiving a valid real-time signal, the virtual method `resolve` is called, which deals with the signal based on the runtime type of the response.
 
 
 #### Usage example:
