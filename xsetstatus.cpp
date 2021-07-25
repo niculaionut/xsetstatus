@@ -229,6 +229,9 @@ static const response_table_t rt_responses = []()
 void ShellResponse::resolve() const
 {
         const int rc = exec_cmd(command, rbuf);
+
+        /* depending on the use case, it may be appropriate to allow
+         * shell commands that don't return EXIT_SUCCESS */
         if(rc != EXIT_SUCCESS)
         {
                 xss_exit(EXIT_FAILURE, "pclose() did not return EXIT_SUCCESS");
