@@ -1,9 +1,9 @@
 diff --git a/xsetstatus.cpp b/xsetstatus.cpp
-index aab64d9..0b11019 100644
+index c5c46ab..7c85b66 100644
 --- a/xsetstatus.cpp
 +++ b/xsetstatus.cpp
-@@ -14,14 +14,8 @@
- /* enums */
+@@ -17,14 +17,8 @@
+  * First value is the index of the leftmost field. */
  enum RootFieldIdx
  {
 -        R_TIME = 0,
@@ -19,16 +19,31 @@ index aab64d9..0b11019 100644
          R_DATE,
          R_SIZE
  };
-@@ -48,6 +42,8 @@ static constexpr auto fmt_format_str = []()
+@@ -51,10 +45,11 @@ static constexpr auto fmt_format_str = []()
  
                  /* custom field labels */
  
 +                labels[R_LOAD] = str_t{"[LOAD_AVG:{}"};
 +
                  /* examples:
-                  * labels[R_LOAD] = str_t{" |sysload:{}"};
-                  * labels[R_MEM]  = str_t{" |memory:{}"};
-@@ -133,25 +129,13 @@ public:
+-                 * labels[R_LOAD] = str_t{" |sysload:{}"};
+-                 * labels[R_MEM]  = str_t{" |memory:{}"};
+-                 * labels[R_VOL]  = str_t{" |volume:{}"}; */
++                 * labels[R_TIME]  = str_t{" |TIME:{}"};
++                 * labels[R_DATE]  = str_t{" |DATE:{}]"}; */
+ 
+                 return std::accumulate(labels, labels + N_FIELDS, str_t{});
+         }();
+@@ -62,7 +57,7 @@ static constexpr auto fmt_format_str = []()
+         return FixedStr<fmt_before_shrink.length()>(fmt_before_shrink);
+ }();        /* Format string generated at compile-time.
+              * Same as manually writing:
+-             * FixedStr<36> fmt_format_str = "[{} |{} |{} |{} |{} |{} |{} |{} |{}]" */
++             * FixedStr<21> fmt_format_str = "[LOAD_AVG:{} |{} |{}]" */
+ 
+ /* struct declarations */
+ struct ShellResponse;
+@@ -136,25 +131,13 @@ public:
  
  /* signal configs  */
  static constexpr std::array sr_table = std::to_array<ShellResponse>({
@@ -57,7 +72,7 @@ index aab64d9..0b11019 100644
          },
          {   /* date */
              R"(date "+%d.%m.%Y")",
-@@ -159,27 +143,14 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
+@@ -162,27 +145,14 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
          }
  });
  
