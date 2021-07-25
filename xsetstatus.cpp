@@ -30,10 +30,10 @@ enum RootFieldIdx
 };
 
 /* global constexpr variables */
-static constexpr int N_FIELDS = R_SIZE;
-static constexpr int FIELD_MAX_LENGTH = 22;
-static constexpr int ROOT_BUFSIZE = N_FIELDS * FIELD_MAX_LENGTH;
-static constexpr auto fmt_format_str = []()
+static constexpr int  N_FIELDS         = R_SIZE;
+static constexpr int  FIELD_MAX_LENGTH = 22;
+static constexpr int  ROOT_BUFSIZE     = N_FIELDS * FIELD_MAX_LENGTH;
+static constexpr auto fmt_format_str   = []()
 {
         using str_t = FixedStr<ROOT_BUFSIZE>;
 
@@ -65,22 +65,23 @@ static constexpr auto fmt_format_str = []()
              * FixedStr<36> fmt_format_str = "[{} |{} |{} |{} |{} |{} |{} |{} |{}]" */
 
 /* struct declarations */
-struct ShellResponse;
-struct BuiltinResponse;
+class Response;
+class ShellResponse;
+class BuiltinResponse;
+class MetaResponse;
 
 /* using declarations */
-using field_buffer_t = FixedStr<FIELD_MAX_LENGTH>;
+using field_buffer_t    = FixedStr<FIELD_MAX_LENGTH>;
 using root_str_buffer_t = FixedStr<ROOT_BUFSIZE>;
-using response_tuple_t = std::tuple<const ShellResponse*, const BuiltinResponse*, void (*)()>;
-using response_table_t = std::vector<response_tuple_t>;
+using response_table_t  = std::vector<const Response*>;
 
 /* global variables */
 static std::array<field_buffer_t, N_FIELDS> rootstrings = {};
 static volatile sig_atomic_t last_sig = -1;
-static volatile sig_atomic_t running = 1;
+static volatile sig_atomic_t running  = 1;
 static const int CSIGRTMAX = SIGRTMAX;
 static const int CSIGRTMIN = SIGRTMIN;
-static const int SIGRANGE = CSIGRTMAX - CSIGRTMIN + 1;
+static const int SIGRANGE  = CSIGRTMAX - CSIGRTMIN + 1;
 #ifndef NO_X11
 static Display* dpy = nullptr;
 static int screen;
@@ -88,13 +89,11 @@ static Window root;
 #endif
 
 /* template function declarations */
-template<std::size_t>
-static void insert_response(auto&, const int, const auto);
-
 template<const auto&, std::size_t...>
 static void run_meta_response();
 
 /* function declarations */
+static void insert_response(response_table_t&, const int, const Response*);
 static int  exec_cmd(const char*, field_buffer_t&);
 static void set_root();
 static void xss_exit(const int, const char*);
@@ -112,26 +111,60 @@ static void solve_signals();
 
 /* struct definitions */
 
-/* respond to signal by writing shell command output to the field buffer */
-struct ShellResponse
+/* response interface */
+class Response
 {
 public:
-        void resolve() const;
+        virtual void resolve() const = 0;
+};
 
+/* respond to signal by writing shell command output to the field buffer */
+class ShellResponse : public Response
+{
 public:
+        constexpr ShellResponse(const char* command, field_buffer_t& rbuf)
+            : command(command)
+            , rbuf(rbuf)
+        {
+        }
+
+        void resolve() const override;
+
+private:
         const char* command;
         field_buffer_t& rbuf;
 };
 
 /* respond to signal by calling a function that modifies the field buffer */
-struct BuiltinResponse
+class BuiltinResponse : public Response
 {
 public:
-        void resolve() const;
+        constexpr BuiltinResponse(void (*fptr)(field_buffer_t&), field_buffer_t& rbuf)
+            : fptr(fptr)
+            , rbuf(rbuf)
+        {
+        }
 
-public:
+        void resolve() const override;
+
+private:
         void (*fptr)(field_buffer_t&);
         field_buffer_t& rbuf;
+};
+
+/* respond to signal by calling other responses */
+class MetaResponse : public Response
+{
+public:
+        constexpr MetaResponse(void (*fptr)())
+            : fptr(fptr)
+        {
+        }
+
+        void resolve() const override;
+
+private:
+        void (*fptr)();
 };
 
 /* signal configs  */
@@ -169,20 +202,25 @@ static constexpr std::array br_table = std::to_array<BuiltinResponse>({
         { toggle_mic,            rootstrings[R_MIC]  }
 });
 
+static constexpr std::array mr_table = std::to_array<MetaResponse>({
+       /* pointer to function */
+        { &run_meta_response<sr_table, 0, 1, 2, 4> },
+});
+
 static const response_table_t rt_responses = []()
 {
-        response_table_t responses(SIGRANGE, {nullptr, nullptr, nullptr});
+        response_table_t responses(SIGRANGE, nullptr);
 
-     /* shell responses               signal value    pointer to ShellResponse instance */
-        insert_response<0>(responses, CSIGRTMAX - 1,  &sr_table[3]);
+     /* shell responses            signal value   pointer to ShellResponse instance */
+        insert_response(responses, CSIGRTMAX - 1, &sr_table[3]);
 
-     /* builtin responses             signal value    pointer to BuiltinResponse instance */
-        insert_response<1>(responses, CSIGRTMAX - 3,  &br_table[0]);
-        insert_response<1>(responses, CSIGRTMAX - 5,  &br_table[1]);
-        insert_response<1>(responses, CSIGRTMAX - 2,  &br_table[2]);
+     /* builtin responses          signal value   pointer to BuiltinResponse instance */
+        insert_response(responses, CSIGRTMAX - 3, &br_table[0]);
+        insert_response(responses, CSIGRTMAX - 5, &br_table[1]);
+        insert_response(responses, CSIGRTMAX - 2, &br_table[2]);
 
-     /* meta responses                signal value    pointer to void (*)() function */
-        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2, 4>);
+     /* meta responses             signal value   pointer to MetaResponse instance */
+        insert_response(responses, CSIGRTMAX - 4, &mr_table[0]);
 
         return responses;
 }();
@@ -202,18 +240,22 @@ void BuiltinResponse::resolve() const
         fptr(rbuf);
 }
 
-/* function / template function definitions */
-template<std::size_t pos>
-void insert_response(auto& arr, const int sig, const auto ptr)
+void MetaResponse::resolve() const
 {
-        std::get<pos>(arr[sig - CSIGRTMIN]) = ptr;
-        signal(sig, u_sig_handler);
+        fptr();
 }
 
+/* function / template function definitions */
 template<const auto& resp_table, std::size_t... indexes>
 void run_meta_response()
 {
         (resp_table[indexes].resolve(), ...);
+}
+
+void insert_response(response_table_t& arr, const int sig, const Response* ptr)
+{
+        arr[sig - CSIGRTMIN] = ptr;
+        signal(sig, u_sig_handler);
 }
 
 int exec_cmd(const char* cmd, field_buffer_t& output_buf)
@@ -341,24 +383,7 @@ void setup()
 
 void handle_sig(const int sig)
 {
-        const auto& sig_resp = rt_responses[sig];
-
-        auto* shellptr = std::get<0>(sig_resp);
-        if(shellptr != nullptr)
-        {
-                shellptr->resolve();
-                return;
-        }
-
-        auto* builtinptr = std::get<1>(sig_resp);
-        if(builtinptr != nullptr)
-        {
-                builtinptr->resolve();
-                return;
-        }
-
-        auto* fptr = std::get<2>(sig_resp);
-        fptr();
+        rt_responses[sig]->resolve();
 }
 
 bool already_running()
