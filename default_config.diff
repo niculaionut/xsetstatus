@@ -1,5 +1,5 @@
 diff --git a/xsetstatus.cpp b/xsetstatus.cpp
-index c5c46ab..7c85b66 100644
+index 06d80e2..8efc795 100644
 --- a/xsetstatus.cpp
 +++ b/xsetstatus.cpp
 @@ -17,14 +17,8 @@
@@ -19,39 +19,31 @@ index c5c46ab..7c85b66 100644
          R_DATE,
          R_SIZE
  };
-@@ -51,10 +45,11 @@ static constexpr auto fmt_format_str = []()
+@@ -50,11 +44,9 @@ static constexpr auto fmt_format_str   = []()
+                 labels[N_FIELDS - 1] = default_last;
  
                  /* custom field labels */
- 
-+                labels[R_LOAD] = str_t{"[LOAD_AVG:{}"};
-+
-                 /* examples:
+-
+-                /* examples:
 -                 * labels[R_LOAD] = str_t{" |sysload:{}"};
 -                 * labels[R_MEM]  = str_t{" |memory:{}"};
 -                 * labels[R_VOL]  = str_t{" |volume:{}"}; */
-+                 * labels[R_TIME]  = str_t{" |TIME:{}"};
-+                 * labels[R_DATE]  = str_t{" |DATE:{}]"}; */
++                labels[R_LOAD] = str_t{"[sysload:{}"};
++                labels[R_TIME] = str_t{" |time:{}"};
++                labels[R_DATE] = str_t{" |date:{}]"};
  
                  return std::accumulate(labels, labels + N_FIELDS, str_t{});
          }();
-@@ -62,7 +57,7 @@ static constexpr auto fmt_format_str = []()
+@@ -62,7 +54,7 @@ static constexpr auto fmt_format_str   = []()
          return FixedStr<fmt_before_shrink.length()>(fmt_before_shrink);
  }();        /* Format string generated at compile-time.
               * Same as manually writing:
 -             * FixedStr<36> fmt_format_str = "[{} |{} |{} |{} |{} |{} |{} |{} |{}]" */
-+             * FixedStr<21> fmt_format_str = "[LOAD_AVG:{} |{} |{}]" */
++             * FixedStr<30> fmt_format_str = "[sysload:{} |time:{} |date:{}]" */
  
  /* struct declarations */
- struct ShellResponse;
-@@ -136,25 +131,13 @@ public:
- 
- /* signal configs  */
- static constexpr std::array sr_table = std::to_array<ShellResponse>({
--        {   /* time */
--            R"(date +%H:%M:%S)",        /* shell command */
--            rootstrings[R_TIME]         /* reference to root buffer */
--        },
-         {   /* sys load*/
+ class Response;
+@@ -177,48 +169,23 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
              R"(uptime | grep -wo "average: .*," | cut --delimiter=' ' -f2 | head -c4)",
              rootstrings[R_LOAD]
          },
@@ -66,13 +58,10 @@ index c5c46ab..7c85b66 100644
 -        {   /* memory usage */
 -            R"(xss-get-mem)",
 -            rootstrings[R_MEM]
-+        {   /* time */
-+            R"(date +%H:%M:%S)",        /* shell command */
-+            rootstrings[R_TIME]         /* reference to root buffer */
-         },
+-        },
          {   /* date */
              R"(date "+%d.%m.%Y")",
-@@ -162,27 +145,14 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
+             rootstrings[R_DATE]
          }
  });
  
@@ -84,21 +73,24 @@ index c5c46ab..7c85b66 100644
 -});
 +static constexpr std::array br_table = std::array<BuiltinResponse, 0>{};
  
+ static constexpr std::array mr_table = std::to_array<MetaResponse>({
+        /* pointer to function */
+-        { &run_meta_response<sr_table, 0, 1, 2, 4> },
++        { &run_meta_response<sr_table, 0, 1, 2> }
+ });
+ 
  static const response_table_t rt_responses = []()
  {
-         response_table_t responses(SIGRANGE, {nullptr, nullptr, nullptr});
+         response_table_t responses(SIGRANGE, nullptr);
  
--     /* shell responses               signal value    pointer to ShellResponse instance */
--        insert_response<0>(responses, CSIGRTMAX - 1,  &sr_table[3]);
+-     /* shell responses            signal value   pointer to ShellResponse instance */
+-        insert_response(responses, CSIGRTMAX - 1, &sr_table[3]);
 -
--     /* builtin responses             signal value    pointer to BuiltinResponse instance */
--        insert_response<1>(responses, CSIGRTMAX - 3,  &br_table[0]);
--        insert_response<1>(responses, CSIGRTMAX - 5,  &br_table[1]);
--        insert_response<1>(responses, CSIGRTMAX - 2,  &br_table[2]);
+-     /* builtin responses          signal value   pointer to BuiltinResponse instance */
+-        insert_response(responses, CSIGRTMAX - 3, &br_table[0]);
+-        insert_response(responses, CSIGRTMAX - 5, &br_table[1]);
+-        insert_response(responses, CSIGRTMAX - 2, &br_table[2]);
 -
-      /* meta responses                signal value    pointer to void (*)() function */
--        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2, 4>);
-+        insert_response<2>(responses, CSIGRTMAX - 4,  &run_meta_response<sr_table, 0, 1, 2>);
+      /* meta responses             signal value   pointer to MetaResponse instance */
+         insert_response(responses, CSIGRTMAX - 4, &mr_table[0]);
  
-         return responses;
- }();
