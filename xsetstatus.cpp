@@ -64,7 +64,7 @@ static constexpr auto fmt_format_str   = []()
              * Same as manually writing:
              * FixedStr<36> fmt_format_str = "[{} |{} |{} |{} |{} |{} |{} |{} |{}]" */
 
-/* struct declarations */
+/* class declarations */
 class Response;
 class ShellResponse;
 class BuiltinResponse;
