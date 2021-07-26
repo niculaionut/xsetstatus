@@ -1,5 +1,5 @@
 diff --git a/xsetstatus.cpp b/xsetstatus.cpp
-index 06d80e2..8efc795 100644
+index 1e00da0..cd7f30a 100644
 --- a/xsetstatus.cpp
 +++ b/xsetstatus.cpp
 @@ -17,14 +17,8 @@
@@ -41,9 +41,19 @@ index 06d80e2..8efc795 100644
 -             * FixedStr<36> fmt_format_str = "[{} |{} |{} |{} |{} |{} |{} |{} |{}]" */
 +             * FixedStr<30> fmt_format_str = "[sysload:{} |time:{} |date:{}]" */
  
- /* struct declarations */
+ /* class declarations */
  class Response;
-@@ -177,48 +169,23 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
+@@ -97,9 +89,6 @@ static void insert_response(response_table_t&, const int, const Response*);
+ static int  exec_cmd(const char*, field_buffer_t&);
+ static void set_root();
+ static void xss_exit(const int, const char*);
+-static void toggle_lang(field_buffer_t&);
+-static void toggle_cpu_gov(field_buffer_t&);
+-static void toggle_mic(field_buffer_t&);
+ static void setup();
+ static void handle_sig(const int);
+ static bool already_running();
+@@ -177,48 +166,23 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
              R"(uptime | grep -wo "average: .*," | cut --delimiter=' ' -f2 | head -c4)",
              rootstrings[R_LOAD]
          },
@@ -67,9 +77,9 @@ index 06d80e2..8efc795 100644
  
 -static constexpr std::array br_table = std::to_array<BuiltinResponse>({
 -       /* pointer to function    reference to root buffer */
--        { toggle_lang,           rootstrings[R_LANG] },
--        { toggle_cpu_gov,        rootstrings[R_GOV]  },
--        { toggle_mic,            rootstrings[R_MIC]  }
+-        { &toggle_lang,           rootstrings[R_LANG] },
+-        { &toggle_cpu_gov,        rootstrings[R_GOV]  },
+-        { &toggle_mic,            rootstrings[R_MIC]  }
 -});
 +static constexpr std::array br_table = std::array<BuiltinResponse, 0>{};
  
@@ -94,3 +104,64 @@ index 06d80e2..8efc795 100644
       /* meta responses             signal value   pointer to MetaResponse instance */
          insert_response(responses, CSIGRTMAX - 4, &mr_table[0]);
  
+@@ -316,60 +280,6 @@ void xss_exit(const int rc, const char* why)
+         std::exit(rc);
+ }
+ 
+-void toggle_lang(field_buffer_t& output_buf)
+-{
+-        static constexpr field_buffer_t ltable[2] = {
+-                {"US"},
+-                {"RO"}
+-        };
+-
+-        static constexpr const char* commands[2] = {
+-                "setxkbmap us; setxkbmap -option numpad:mac",
+-                "setxkbmap ro -variant std"
+-        };
+-
+-        static std::size_t idx = 1;
+-
+-        idx = !idx;
+-        std::system(commands[idx]);
+-        output_buf = ltable[idx];
+-}
+-
+-void toggle_cpu_gov(field_buffer_t& output_buf)
+-{
+-        static constexpr field_buffer_t freq_table[2] = {
+-                {"*"},
+-                {"$"}
+-        };
+-
+-        static constexpr const char* commands[2] = {
+-                "xss-set-save",
+-                "xss-set-perf"
+-        };
+-
+-        static std::size_t idx = 1;
+-
+-        idx = !idx;
+-        std::system(commands[idx]);
+-        output_buf = freq_table[idx];
+-}
+-
+-void toggle_mic(field_buffer_t& output_buf)
+-{
+-        static constexpr field_buffer_t mic_status_table[2] = {
+-                {"0"},
+-                {"1"}
+-        };
+-
+-        static constexpr const char* command = "pactl set-source-mute @DEFAULT_SOURCE@ toggle";
+-
+-        static std::size_t idx = 1;
+-
+-        idx = !idx;
+-        std::system(command);
+-        output_buf = mic_status_table[idx];
+-}
+-
+ void setup()
+ {
+ #ifndef NO_X11
