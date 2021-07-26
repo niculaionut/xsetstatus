@@ -3,6 +3,8 @@
 #include <array>
 #include <algorithm>
 
+/* char buffers and string views involved in
+ * operations with FixedStr must be null-terminated */
 template<std::size_t N>
 class FixedStr
 {
