@@ -1,7 +1,7 @@
 ## xsetstatus
 Minimal status bar for X written in C++.\
 Inspired by [dwmblocks](https://github.com/torrinfail/dwmblocks).\
-Needs a window manager that reads the text from the X root window name and prints it accordingly (e.g. [dwm](https://dwm.suckless.org/)).
+Needs a window manager that reads the text from the X root window name and displays it accordingly (e.g. [dwm](https://dwm.suckless.org/)).
 
 #### Dependencies:
 + libx11-dev;
