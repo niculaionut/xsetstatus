@@ -6,7 +6,7 @@ Needs a window manager that reads the text from the X root window name and displ
 #### Dependencies:
 + libx11-dev;
 + libfmt-dev;
-+ c++20-compatible compiler (at least `g++ version 10.1` or `clang++ version 11.0.0`).
++ c++20-compatible compiler (at least `gcc version 10.1` or `clang version 11.0.0`).
 
 #### Building:
 
