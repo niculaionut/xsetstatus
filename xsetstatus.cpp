@@ -312,7 +312,7 @@ void xss_exit(const int rc, const char* why)
 #ifndef NO_X11
         XCloseDisplay(dpy);
 #endif
-        fmt::print(stderr, "{}\n", why);
+        fmt::print(stderr, "xsetstatus: {}\n", why);
         std::exit(rc);
 }
 
