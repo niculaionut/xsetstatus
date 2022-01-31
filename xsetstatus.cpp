@@ -196,7 +196,7 @@ static constexpr std::array sr_table = std::to_array<ShellResponse>({
 });
 
 static constexpr std::array br_table = std::to_array<BuiltinResponse>({
-       /* pointer to function    reference to root buffer */
+       /* pointer to function     reference to root buffer */
         { &toggle_lang,           rootstrings[R_LANG] },
         { &toggle_cpu_gov,        rootstrings[R_GOV]  },
         { &toggle_mic,            rootstrings[R_MIC]  }
